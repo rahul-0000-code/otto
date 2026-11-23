@@ -1,0 +1,1471 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Saathi Prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+Devanagari:wght@400;500;600&display=swap">
+<style>
+/* Layout: one phone-sized app centred on a dark stage with demo controls beside it.
+   Below 760px wide the app fills the screen and the controls open from a small "demo" button. */
+:root{
+  color-scheme:dark;
+  --stage:#070707; --ink:#F2F2F2; --ink2:#A8A8A8; --ink3:#8A8A8A;
+  --lime:#C8FF2E; --onlime:#0A0A0A; --red:#FF4D5E; --red2:#FF8A95; --amber:#FFC23D;
+  --line:rgba(255,255,255,.12); --glass:rgba(255,255,255,.05); --sheet:#0E0E0E; --dlg:#151515;
+  --f-display:'Space Grotesk','Noto Sans Devanagari',system-ui,sans-serif;
+  --f-mono:'JetBrains Mono',ui-monospace,Menlo,Consolas,monospace;
+  --top:52px;
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--stage);color:var(--ink);font-family:var(--f-display);-webkit-font-smoothing:antialiased}
+button,input,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--lime);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition:none!important}}
+
+/* ---------- stage ---------- */
+.stage{min-height:100%;display:flex;align-items:center;justify-content:center;gap:40px;padding-block:20px;padding-inline:16px}
+.frame{position:relative;flex:none}
+.device{position:absolute;left:0;top:0;width:390px;height:844px;transform:scale(var(--s,1));transform-origin:0 0;border-radius:46px;overflow:hidden;background:#000;box-shadow:0 0 0 1px rgba(255,255,255,.14),0 0 0 8px #151515,0 0 0 9px rgba(255,255,255,.08),0 50px 100px -30px rgba(0,0,0,.9)}
+#app{position:relative;width:100%;height:100%;overflow:hidden;background:#000;font-family:var(--f-display);color:var(--ink)}
+.demo-fab{display:none}
+body.mobile{--top:20px}
+body.mobile .stage{display:block;padding:0;height:100%;min-height:0}
+body.mobile .frame{width:100%!important;height:100%!important}
+body.mobile .device{position:relative;width:100%;height:100%;transform:none;border-radius:0;box-shadow:none}
+body.mobile .panel{position:fixed;left:0;right:0;bottom:0;max-height:78%;width:auto;border-radius:24px 24px 0 0;z-index:200;transform:translateY(105%);transition:transform .25s ease;padding-bottom:calc(20px + env(safe-area-inset-bottom,0px))}
+body.mobile.panel-open .panel{transform:none}
+body.mobile .demo-fab{display:flex;position:fixed;left:10px;bottom:calc(86px + env(safe-area-inset-bottom,0px));z-index:150;width:44px;height:44px;align-items:center;justify-content:center;border-radius:50%;border:1px solid rgba(200,255,46,.5);background:rgba(10,10,10,.88);color:var(--lime);cursor:pointer}
+
+/* ---------- demo panel ---------- */
+.panel{width:300px;max-height:calc(100vh - 40px);overflow-y:auto;background:#0D0D0D;border:1px solid var(--line);border-radius:22px;padding:20px;display:flex;flex-direction:column;gap:14px}
+.pc-head{display:flex;align-items:center;gap:10px}
+.pc-mark{font-weight:700;font-size:20px;letter-spacing:-.03em}
+.pc-mark span{color:var(--lime)}
+.pc-tag{font-family:var(--f-mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);border:1px solid var(--line);border-radius:6px;padding:2px 6px}
+.pc-x{margin-left:auto;display:none;width:36px;height:36px;border-radius:50%;border:1px solid var(--line);background:none;cursor:pointer;align-items:center;justify-content:center}
+body.mobile .pc-x{display:flex}
+.pc-note{margin:0;font-size:13px;line-height:1.45;color:var(--ink2)}
+.pc h3{margin:4px 0 0;font-family:var(--f-mono);font-size:10.5px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)}
+.pc-row{display:flex;flex-wrap:wrap;gap:6px}
+.pc-row button,.pc-net{min-height:36px;padding:7px 11px;border-radius:10px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.03);cursor:pointer;font-size:13px;font-weight:500}
+.pc-row button:hover,.pc-net:hover{border-color:rgba(200,255,46,.6)}
+.pc-row button.on{background:var(--lime);color:var(--onlime);border-color:var(--lime)}
+.pc-net{display:flex;align-items:center;gap:10px;width:100%;justify-content:space-between}
+.pc-hint{margin:-6px 0 0;font-size:12px;line-height:1.45;color:var(--ink3)}
+.pc-tips{margin:0;padding-left:18px;font-size:12.5px;line-height:1.55;color:var(--ink2)}
+.pc-tips b{color:var(--ink)}
+
+/* ---------- app primitives ---------- */
+#app p,#app h1,#app h2,#app h3{margin:0}
+.screen{position:absolute;inset:0;display:flex;flex-direction:column;background:#000}
+.scroll{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;position:relative}
+.scroll::-webkit-scrollbar{display:none}
+.pad{position:relative;padding:var(--top) 20px 110px;display:flex;flex-direction:column;gap:12px}
+.fade{animation:fadeIn .22s ease}
+.glow{position:absolute;border-radius:50%;pointer-events:none}
+.smoke{background:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.025));backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid var(--line);border-radius:20px}
+.mono{font-family:var(--f-mono)}
+.lbl{font-family:var(--f-mono);font-size:11px;letter-spacing:.08em;color:var(--ink3);text-transform:uppercase}
+.xs{font-size:11.5px}
+.dim{color:var(--ink2)}.lime{color:var(--lime)}.red{color:var(--red)}.amb{color:var(--amber)}
+.ic{fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;display:block;flex:none}
+.spin{animation:spin 1s linear infinite}
+.top{display:flex;justify-content:space-between;align-items:center;min-height:36px;gap:10px}
+.top.tight{min-height:0}
+.h1{font-size:40px;line-height:1;font-weight:700;letter-spacing:-.04em;text-wrap:balance}
+.h1.s36{font-size:36px}
+.h2{font-size:30px;line-height:1.02;font-weight:700;letter-spacing:-.04em}
+.word{font-weight:700;font-size:21px;letter-spacing:-.03em}
+.link{background:none;border:0;padding:6px 0;cursor:pointer;min-height:36px}
+.row,.rowbtn{display:flex;align-items:center;gap:12px;padding:12px 14px;width:100%;background:none;border:0;text-align:left;cursor:pointer}
+.rowbtn{padding:0}
+.row:disabled{cursor:default}
+.list{padding:2px 0}
+.av{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-weight:600;flex:none;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.05)}
+.av.amb{color:var(--amber);border-color:rgba(255,194,61,.4)}
+.tile{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex:none;background:rgba(255,255,255,.06);border:1px solid var(--line)}
+.tile.on{color:var(--lime);border-color:rgba(200,255,46,.35)}
+.tile.warn{color:var(--amber);border-color:rgba(255,194,61,.35)}
+.hr{height:1px;margin:0 14px;background:rgba(255,255,255,.08)}
+.t1{font-weight:600;font-size:15px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.t2{display:block;font-size:12.5px;color:var(--ink2);margin-top:3px}
+.mn{flex:1;min-width:0;display:block}
+.ell{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.num{font-size:13.5px;font-family:var(--f-mono)}
+.tag{font-family:var(--f-mono);font-size:9.5px;font-weight:600;letter-spacing:.08em;padding:2px 6px;border-radius:6px;text-transform:uppercase;flex:none;line-height:1.4}
+.tag.r{color:var(--red);background:rgba(255,77,94,.12);border:1px solid rgba(255,77,94,.45)}
+.tag.a{color:var(--amber);background:rgba(255,194,61,.1);border:1px solid rgba(255,194,61,.4)}
+.tag.l{color:var(--lime);background:rgba(200,255,46,.08);border:1px solid rgba(200,255,46,.4)}
+.tag.w{color:#C8C8C8;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.2)}
+.pan{padding:14px}
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;height:52px;border-radius:14px;font-weight:700;font-size:16px;border:0;cursor:pointer;width:100%;text-decoration:none}
+.btn:disabled{opacity:.38;cursor:not-allowed}
+.btn.l{background:var(--lime);color:var(--onlime)}
+.btn.g{background:transparent;color:var(--ink);border:1px solid rgba(255,255,255,.22);font-weight:600}
+.btn.r{background:var(--red);color:var(--onlime)}
+.btn.a{background:var(--amber);color:var(--onlime)}
+.btn.sm{height:44px;font-size:14px;width:auto;padding:0 16px;border-radius:12px}
+.btn.grow{flex:1}
+.btnrow{display:flex;gap:8px;margin-top:12px;align-items:center}
+.okc{width:22px;height:22px;border-radius:50%;background:var(--lime);color:var(--onlime);display:flex;align-items:center;justify-content:center;flex:none}
+.numc{width:22px;height:22px;border-radius:50%;border:1.5px solid rgba(255,255,255,.28);display:flex;align-items:center;justify-content:center;flex:none;font-family:var(--f-mono);font-size:11px;color:var(--ink2)}
+.numc.cur{border-color:var(--ink);color:var(--ink)}
+.radio{width:20px;height:20px;border-radius:50%;border:1.5px solid rgba(255,255,255,.35);flex:none;display:block}
+.radio.on{border:6px solid var(--lime)}
+.radio-b{width:44px;height:44px;margin:-12px -12px -12px 0;display:flex;align-items:center;justify-content:center;background:none;border:0;cursor:pointer;flex:none}
+.seg{flex:1;height:44px;border:0;border-radius:12px;font-weight:600;font-size:14px;color:var(--ink2);background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px}
+.seg.on{background:var(--lime);color:var(--onlime)}
+.segrow{display:flex;gap:4px}
+.segbox{display:flex;gap:3px;padding:3px;border-radius:12px;border:1px solid rgba(255,255,255,.16);flex:none}
+.segbox .seg{height:38px;padding:0 12px;flex:none;border-radius:9px;font-size:13.5px}
+.chips{display:flex;gap:7px;margin-top:10px;overflow-x:auto;scrollbar-width:none;padding-right:24px}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;padding:9px 13px;border-radius:10px;font-size:13.5px;font-weight:500;color:#C8C8C8;background:transparent;border:1px solid rgba(255,255,255,.2);cursor:pointer}
+.chip.on{color:var(--onlime);background:var(--lime);border-color:var(--lime)}
+.chip.add{border-style:dashed;color:var(--ink2);font-size:12.5px;padding:7px 11px}
+.inp{font-size:15px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.16);border-radius:12px;padding:11px 12px;outline:none;width:100%;min-width:0}
+.inp:focus{border-color:rgba(200,255,46,.6)}
+textarea.inp{resize:none;font-family:var(--f-mono);font-size:12.5px;line-height:1.5}
+.fld{display:flex;flex-direction:column;gap:6px;flex:1;min-width:0}
+.keyf{display:flex;align-items:center;margin-top:8px;border-radius:12px;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.04)}
+.keyf:focus-within{border-color:rgba(200,255,46,.6)}
+.keyf input{flex:1;min-width:0;font-family:var(--f-mono);font-size:13px;background:none;border:0;outline:none;padding:12px}
+.keyf.bad,.keyf.bad:focus-within{border-color:var(--red);background:rgba(255,77,94,.06)}
+.keyf.ok{border-color:rgba(200,255,46,.5)}
+.eye{width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:var(--ink2);flex:none;background:none;border:0;cursor:pointer}
+.err{display:flex;gap:8px;margin-top:8px;font-size:13px;line-height:1.4;color:var(--red2)}
+.err .ic{color:var(--red);margin-top:1px}
+.okline{display:flex;align-items:center;gap:6px;margin-top:8px;font-family:var(--f-mono);font-size:11.5px;color:var(--lime)}
+.saved{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--lime)}
+.saving{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--ink2)}
+.bar{height:6px;border-radius:3px;background:rgba(255,255,255,.12);overflow:hidden}
+.bar>i{display:block;height:100%;border-radius:3px;background:var(--lime);box-shadow:0 0 12px rgba(200,255,46,.6);transition:width .25s linear}
+.segs{display:flex;gap:4px}
+.segs i{flex:1;height:4px;border-radius:2px;background:rgba(255,255,255,.14)}
+.segs i.on{background:var(--lime)}
+.segs i.cur{background:var(--ink)}
+.empty{font-size:13.5px;color:var(--ink2);line-height:1.5;padding:8px 2px}
+.banner{display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:16px;font-size:13.5px;line-height:1.35}
+.banner.amb{background:rgba(255,194,61,.07);border:1px solid rgba(255,194,61,.35);color:#E9D9AE}
+.banner.lime{background:rgba(200,255,46,.06);border:1px solid rgba(200,255,46,.35);color:#E2F7B5}
+.tgl{position:relative;width:48px;height:28px;border-radius:14px;background:rgba(255,255,255,.18);flex:none;border:0;cursor:pointer;padding:0}
+.tgl::after{content:'';position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:var(--ink);transition:left .15s}
+.tgl.on{background:var(--lime)}
+.tgl.on::after{left:23px;background:var(--onlime)}
+
+/* today */
+.avatar{position:relative;width:44px;height:44px;border-radius:50%;background:var(--ink);color:var(--onlime);font-weight:700;font-size:17px;display:flex;align-items:center;justify-content:center;border:0;cursor:pointer}
+.adot{position:absolute;top:0;right:0;width:12px;height:12px;border-radius:50%;background:var(--amber);border:2px solid #000}
+.status{display:flex;align-items:center;gap:6px}
+.status i{width:6px;height:6px;border-radius:50%}
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));padding:12px 4px;border-radius:18px}
+.stats>div{padding:0 12px;min-width:0}
+.stats>div+div{border-left:1px solid rgba(255,255,255,.1)}
+.stats b{display:block;font-size:24px;font-weight:700;letter-spacing:-.03em;font-variant-numeric:tabular-nums;white-space:nowrap}
+.stats span{display:block;margin-top:4px;font-size:9.5px}
+.modes{padding:4px;border-radius:16px}
+.delay{display:flex;align-items:center;gap:10px;padding:6px 6px 2px 10px}
+.stepb{width:36px;height:36px;border-radius:10px;border:1px solid rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;background:none;cursor:pointer}
+.dnum{font-size:15px;width:44px;text-align:center}
+.mhint{padding:10px 10px 8px;line-height:1.4}
+.need{border-color:rgba(255,77,94,.35)}
+.bpill{position:absolute;left:50%;bottom:calc(22px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);display:flex;align-items:center;gap:8px;height:46px;padding:0 16px 0 14px;border-radius:23px;background:rgba(24,24,24,.9);border:1px solid var(--line);white-space:nowrap;cursor:pointer;z-index:5;max-width:calc(100% - 32px)}
+
+/* sheets, dialogs, snackbar */
+.scrim{position:absolute;inset:0;background:rgba(0,0,0,.66);z-index:20}
+.sheet{position:absolute;left:0;right:0;bottom:0;top:calc(var(--top) - 8px);border-radius:30px 30px 0 0;background:var(--sheet);border-top:1px solid rgba(255,255,255,.16);display:flex;flex-direction:column;box-shadow:0 -30px 60px rgba(0,0,0,.8);z-index:21}
+.sheet.you{top:calc(var(--top) + 4px)}
+.shead{flex:none;padding:10px 20px 4px;display:flex;flex-direction:column;gap:8px}
+.grab{width:38px;height:4px;border-radius:2px;background:rgba(255,255,255,.25);align-self:center;flex:none;border:0;padding:0;cursor:pointer}
+.sbody{flex:1;min-height:0;overflow-y:auto;scrollbar-width:none;padding:6px 20px calc(110px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:10px}
+.sbody::-webkit-scrollbar{display:none}
+.back{display:flex;align-items:center;gap:2px;height:44px;font-size:14px;font-weight:500;color:var(--ink2);background:none;border:0;cursor:pointer;padding:0}
+.closeb{width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.07);display:flex;align-items:center;justify-content:center;border:0;cursor:pointer;flex:none}
+.card{border-radius:18px;border:1px solid var(--line);background:rgba(255,255,255,.035)}
+.card.on{border-color:rgba(200,255,46,.4)}
+.chd{display:flex;align-items:center;gap:12px;padding:14px;width:100%}
+.chd-main{display:flex;align-items:center;gap:12px;flex:1;min-width:0;background:none;border:0;padding:0;text-align:left;cursor:pointer}
+.cbody{padding:0 14px 12px}
+.mrow{display:flex;align-items:center;gap:12px;min-height:44px;width:100%;background:none;border:0;padding:0;text-align:left;cursor:pointer}
+.mrow:disabled{opacity:.42;cursor:not-allowed}
+.keyrow{display:flex;align-items:center;gap:8px;margin-top:2px}
+.dlg-scrim{position:absolute;inset:0;background:rgba(0,0,0,.72);z-index:40}
+.dlg{position:absolute;left:0;right:0;bottom:0;padding:10px 20px calc(28px + env(safe-area-inset-bottom,0px));border-radius:30px 30px 0 0;background:var(--dlg);border-top:1px solid rgba(255,255,255,.16);display:flex;flex-direction:column;z-index:41}
+.dico{margin-top:18px;width:52px;height:52px;border-radius:16px;background:rgba(255,77,94,.12);border:1px solid rgba(255,77,94,.4);color:var(--red);display:flex;align-items:center;justify-content:center}
+.dlg h2{font-size:26px;font-weight:700;letter-spacing:-.03em;margin-top:16px}
+.dlg p{font-size:14.5px;line-height:1.45;margin-top:8px;color:var(--ink2)}
+.dlg p b{color:var(--ink)}
+.note{display:flex;align-items:center;gap:10px;margin-top:16px;padding:12px;border-radius:14px;background:rgba(255,194,61,.07);border:1px solid rgba(255,194,61,.3);font-size:13px;line-height:1.4;color:#E6D3A3}
+.snack{position:absolute;left:14px;right:14px;bottom:calc(20px + env(safe-area-inset-bottom,0px));display:flex;align-items:center;gap:12px;padding:6px 6px 6px 12px;min-height:56px;border-radius:16px;background:#1C1C1C;border:1px solid rgba(255,255,255,.16);box-shadow:0 24px 50px -10px rgba(0,0,0,.95);z-index:60}
+.snack.ok{border-color:rgba(200,255,46,.45)}
+.snack.err{border-color:rgba(255,77,94,.55)}
+.snack .sb{background:none;border:0;cursor:pointer;height:44px;padding:0 14px;font-weight:700;font-size:14px;color:var(--lime);display:flex;align-items:center;gap:6px;flex:none}
+.erc{width:26px;height:26px;border-radius:50%;background:var(--red);color:var(--onlime);display:flex;align-items:center;justify-content:center;flex:none}
+.enter.sheet,.enter.dlg{animation:up .3s cubic-bezier(.2,.8,.2,1)}
+.enter.scrim,.enter.dlg-scrim{animation:fadeIn .2s ease}
+.leave.sheet{animation:down .2s ease forwards}
+.leave.scrim{animation:fadeOut .2s ease forwards}
+.enter.snack{animation:snackIn .25s cubic-bezier(.2,.8,.2,1)}
+
+/* setup */
+.step{display:flex;align-items:center;gap:12px;padding:10px 14px;width:100%;background:none;border:0;text-align:left;cursor:pointer}
+.step:disabled{cursor:default}
+.stepx{margin:4px 8px;padding:14px 12px;border-radius:16px;border:1.5px solid rgba(200,255,46,.55);background:rgba(200,255,46,.04)}
+.stepx .why{font-size:13px;line-height:1.45;color:var(--ink2);margin-top:10px}
+.subchk{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:13px}
+
+/* calls */
+.bub{max-width:84%;padding:10px 13px;border-radius:16px;font-size:14px;line-height:1.45;overflow-wrap:anywhere}
+.bub.in{align-self:flex-start;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.1);border-bottom-left-radius:5px}
+.bub.out{align-self:flex-end;border:1px solid rgba(200,255,46,.45);color:#E9FFC0;border-bottom-right-radius:5px}
+.bub.fill{align-self:flex-end;background:var(--lime);color:var(--onlime);border-bottom-right-radius:5px}
+.bub.you{align-self:flex-end;background:var(--ink);color:var(--onlime);border-bottom-right-radius:5px}
+.bmeta{font-family:var(--f-mono);font-size:10.5px;color:var(--ink2);align-self:flex-end;margin-top:-4px}
+.bmeta.l{align-self:flex-start}
+.tx{display:flex;flex-direction:column;gap:8px}
+.callbtn{width:70px;height:70px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.livepill{position:absolute;top:calc(var(--top) - 40px);left:14px;right:14px;min-height:56px;border-radius:28px;padding:0 8px 0 18px;display:flex;align-items:center;gap:10px;background:#000;border:1px solid rgba(200,255,46,.5);box-shadow:0 12px 30px rgba(0,0,0,.8),0 0 30px -8px rgba(200,255,46,.4);z-index:5}
+body.mobile .livepill{top:10px}
+.livepill.you{border-color:rgba(255,255,255,.3);box-shadow:0 12px 30px rgba(0,0,0,.8)}
+.pulse{width:10px;height:10px;border-radius:50%;background:var(--lime);box-shadow:0 0 0 5px rgba(200,255,46,.18),0 0 14px var(--lime);flex:none;animation:pulse 1.6s ease-in-out infinite}
+.pillbtn{height:42px;padding:0 16px;border-radius:21px;border:0;font-weight:700;font-size:14px;display:flex;align-items:center;gap:6px;cursor:pointer;flex:none}
+.compose{position:absolute;left:16px;right:16px;bottom:calc(24px + env(safe-area-inset-bottom,0px));display:flex;align-items:center;gap:10px}
+.compose input{flex:1;min-width:0;height:50px;border-radius:25px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.04);padding:0 18px;outline:none;font-size:14px}
+.compose input:disabled{color:var(--ink2)}
+.endb{width:56px;height:56px;border-radius:50%;background:var(--red);color:var(--onlime);display:flex;align-items:center;justify-content:center;border:0;cursor:pointer;flex:none}
+
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes fadeIn{from{opacity:0}}
+@keyframes fadeOut{to{opacity:0}}
+@keyframes up{from{transform:translateY(100%)}}
+@keyframes down{to{transform:translateY(100%)}}
+@keyframes snackIn{from{transform:translateY(20px);opacity:0}}
+@keyframes pulse{50%{box-shadow:0 0 0 9px rgba(200,255,46,.08),0 0 14px var(--lime)}}
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="frame" id="frame"><div class="device" id="device"><div id="app" aria-live="polite"></div></div></div>
+  <aside class="panel" id="panel" aria-label="Prototype controls"></aside>
+</div>
+<button class="demo-fab" id="fab" type="button" aria-label="Open prototype controls"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg></button>
+<script>
+'use strict';
+(function () {
+  var app = document.getElementById('app');
+  var panel = document.getElementById('panel');
+  var frame = document.getElementById('frame');
+  var device = document.getElementById('device');
+
+  /* ---------------- icons ---------------- */
+  var IC = {
+    check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+    chev: '<path d="M9 6l6 6-6 6"/>',
+    back: '<path d="M15 6l-6 6 6 6"/>',
+    x: '<path d="M6 6l12 12M18 6L6 18"/>',
+    spark: '<path d="M12 3l1.8 4.7 4.7 1.8-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/>',
+    user: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+    msg: '<path d="M4 5h16v11H9l-5 4z"/>',
+    shield: '<path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/>',
+    phone: '<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/>',
+    battery: '<rect x="2" y="7" width="17" height="10" rx="2.5"/><path d="M22 10.5v3M6 10.5v3M9.5 10.5v3"/>',
+    lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+    copy: '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h8"/>',
+    eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+    eyeoff: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><path d="M3 3l18 18"/>',
+    trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
+    alert: '<circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5v.01"/>',
+    warn: '<path d="M12 3.5L2.5 20h19z"/><path d="M12 10v4.5M12 17.5v.01"/>',
+    spin: '<circle cx="12" cy="12" r="9" stroke-opacity=".25"/><path d="M21 12a9 9 0 0 0-9-9"/>',
+    key: '<circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M16 7l3 3M14 9l2 2"/>',
+    down: '<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>',
+    wifi: '<path d="M2 9a15 15 0 0 1 20 0M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0M12 19.5v.01"/>',
+    nowifi: '<path d="M8.5 16a5 5 0 0 1 7 0M12 19.5v.01M5 12.5a10 10 0 0 1 4.5-2.4M2 9a15 15 0 0 1 5-3M17 10.5a10 10 0 0 1 2 2M14 5.2A15 15 0 0 1 22 9M3 3l18 18"/>',
+    cpu: '<rect x="6" y="6" width="12" height="12" rx="2"/><path d="M10 10h4v4h-4zM9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/>',
+    cloud: '<path d="M7 18a5 5 0 0 1-.5-10A6 6 0 0 1 18 8.5a4.5 4.5 0 0 1-.5 9.5z"/>',
+    bolt: '<path d="M13 2L4 14h7l-1 8 9-12h-7z"/>',
+    undo: '<path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/>',
+    stop: '<rect x="6" y="6" width="12" height="12" rx="2"/>',
+    plus: '<path d="M12 5v14M5 12h14"/>',
+    minus: '<path d="M5 12h14"/>',
+    send: '<path d="M4 12l16-8-6 16-2-7z"/>',
+    pencil: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M14 6l4 4"/>',
+    list: '<path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/>'
+  };
+  function I(n, s, cls, sw) {
+    return '<svg class="ic ' + (cls || '') + '" width="' + (s || 18) + '" height="' + (s || 18) + '" viewBox="0 0 24 24" aria-hidden="true"' + (sw ? ' style="stroke-width:' + sw + '"' : '') + '>' + IC[n] + '</svg>';
+  }
+  function SP(s, cls) { return I('spin', s || 16, 'spin ' + (cls || ''), 2.4); }
+  function OK(s) { return '<span class="okc" style="width:' + (s || 22) + 'px;height:' + (s || 22) + 'px">' + I('check', Math.round((s || 22) * .55), '', 3) + '</span>'; }
+  function esc(v) {
+    return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  /* ---------------- catalog (mirrors the app) ---------------- */
+  var GEM = [
+    { id: '35', name: 'Gemini 3.5 Flash-Lite', short: '3.5 Flash-Lite', note: 'recommended', s: 1.2 },
+    { id: '31', name: 'Gemini 3.1 Flash-Lite', short: '3.1 Flash-Lite', note: 'fastest', s: 1.1 },
+    { id: '36', name: 'Gemini 3.6 Flash', short: '3.6 Flash', note: 'smarter', s: 1.9 }
+  ];
+  var GPT = [
+    { id: 'nano', name: 'GPT-5.4 nano', short: '5.4 nano', note: 'quicker', s: 1.4 },
+    { id: 'mini', name: 'GPT-5.4 mini', short: '5.4 mini', note: 'better judgement', s: 1.8 }
+  ];
+  var LOCAL = {
+    gemma: { name: 'Gemma 4 E2B', short: 'gemma 4 e2b', size: 2.59, gb: '2.6 GB', gpu: 2.2, cpu: 3.8, desc: 'Google’s phone-sized Gemma 4 · 140+ languages incl. हिंदी & मराठी', rate: 0.02 },
+    qwen: { name: 'Qwen 3.5 0.8B', short: 'qwen 3.5 0.8b', size: 0.96, gb: '0.96 GB', gpu: 1.3, cpu: 2.1, desc: 'Lightest and fastest · basic Hindi', rate: 0.05 }
+  };
+  var LANGS = [['auto', 'Auto'], ['en', 'English'], ['hi', 'हिंदी'], ['mr', 'मराठी'], ['hing', 'Hinglish']];
+  var STYLES = [['friendly', 'Friendly'], ['pro', 'Professional'], ['resp', 'Respectful'], ['concise', 'Concise'], ['witty', 'Witty']];
+  var RULES = ['Take a message if it sounds important.', 'Ask who is calling before anything else.', 'If Mom calls, say I will call back after 7.'];
+  var KEYS = {
+    gemOk: 'AIzaSyDemoPrototypeKeyForSaathiApp00001',
+    gemBad: 'AIzaSyRevokedKeyThatGoogleWillReject999',
+    gptOk: 'sk-proj-demo7Hq2Lw9Xb4Kc8Vn1Rt5Ys3Pz6Ma0Ue2Ji4Ob8Qd',
+    gptBad: 'sk-proj-revoked9Hq2Lw9Xb4Kc8Vn1Rt5Ys3Pz6Ma0Ue2Ji4'
+  };
+  var STEPS = [
+    { id: 'acc', title: 'Accessibility', sub: 'Reads the call screen', why: 'Saathi reads the caller’s words from Samsung’s Text call screen. Android asks you to switch this on once.', btn: 'Turn on', ok: 'on' },
+    { id: 'phone', title: 'Phone & calls', sub: 'Answers and opens Text call', why: 'Lets Saathi pick up and switch the call to Text call.', btn: 'Allow', ok: 'allowed' },
+    { id: 'brain', title: 'Brain', sub: 'Writes the replies', ok: '' },
+    { id: 'contacts', title: 'Caller names', sub: 'So Saathi knows Mom from a stranger', why: 'Saathi uses names from your contacts to greet people and label calls.', btn: 'Allow contacts', ok: 'allowed' },
+    { id: 'notif', title: 'Notifications', sub: 'Call summaries the moment calls end', why: 'You get a summary as soon as Saathi hangs up.', btn: 'Allow', ok: 'allowed' },
+    { id: 'battery', title: 'Background battery', sub: 'Unrestricted, so Android won’t stop it', why: 'Samsung can put apps to sleep. Unrestricted keeps Saathi ready for calls.', btn: 'Set unrestricted', ok: 'unrestricted' },
+    { id: 'samsung', title: 'Samsung call settings', sub: 'Text call on · Call display: Full screen', why: '', btn: 'Open Samsung settings', ok: 'done' }
+  ];
+  var PERMS = ['acc', 'phone', 'contacts', 'notif', 'battery'];
+
+  function seedCalls() {
+    return [
+      { id: 'c1', name: 'Mom', av: 'M', number: '+91 98200 •••••', when: '12m', time: '6:42 pm', dur: 108, tag: 'urgent', open: true, brain: 'gemini', lang: 'हिंदी',
+        line: 'Call before 7 — Papa’s train ticket.',
+        summary: 'Call her before 7 pm about Papa’s train ticket to Pune. Tatkal booking opens at 10 am tomorrow.',
+        tx: [['in', 'राहुल फ़ोन क्यों नहीं उठा रहा?'], ['out', 'नमस्ते! राहुल अभी व्यस्त हैं। मैं Saathi, उनकी असिस्टेंट। कोई संदेश दूँ?'], ['in', 'सात बजे से पहले फ़ोन करे, पापा की टिकट की बात है।'], ['out', 'ज़रूर, मैं उन्हें अभी बता देती हूँ।']] },
+      { id: 'c2', name: '+91 80 4718 ••••', av: '!', unknown: true, number: '+91 80 4718 ••••', when: '1h', time: '5:51 pm', dur: 52, tag: 'spam', brain: 'gemini', lang: 'हिंदी',
+        line: 'Loan offer. Declined, asked them to stop.',
+        summary: 'Pre-approved personal loan pitch. Saathi said Rahul isn’t interested and asked them to remove the number.',
+        tx: [['in', 'Sir, aapke liye 5 lakh ka pre-approved loan hai.'], ['out', 'धन्यवाद, लेकिन राहुल को लोन नहीं चाहिए। कृपया यह नंबर अपनी लिस्ट से हटा दें।']] },
+      { id: 'c3', name: 'Courier', av: 'C', number: '+91 99301 •••••', when: '2h', time: '4:37 pm', dur: 111, tag: null, brain: 'gemini', lang: 'हिंदी',
+        line: 'Parcel left with the building guard.',
+        summary: 'The courier couldn’t find anyone at the gate. Saathi asked them to leave the parcel with the building guard.',
+        tx: [['in', 'Hello sir, parcel hai. Gate pe koi nahi hai.'], ['out', 'नमस्ते! राहुल अभी व्यस्त हैं। पार्सल गार्ड के पास छोड़ दीजिए।'], ['in', 'Theek hai, guard ko de deta hoon.']] }
+    ];
+  }
+
+  function fresh() {
+    return {
+      route: 'setup', prev: 'today', review: false, focus: null, busy: {},
+      online: true, mode: 'auto', delay: 8,
+      steps: { acc: true, phone: true, brain: false, contacts: false, notif: false, battery: false, samsung: false },
+      sk: { draft: '', state: 'idle', err: '', show: true },
+      owner: 'Rahul',
+      persona: { name: 'Saathi', voice: 'f', lang: 'hi', style: 'friendly', ins: 'Deliveries: leave it with the guard.\nNever share OTPs.', mark: {} },
+      brain: {
+        primary: 'local', backup: true, open: 'gemini',
+        gemini: { key: '', model: '35', draft: '', edit: false, state: 'idle', err: '', show: false },
+        openai: { key: '', model: 'nano', draft: '', edit: false, state: 'idle', err: '', show: false }
+      },
+      local: { gemma: { st: 'installed', p: 1 }, qwen: { st: 'none', p: 0 }, unit: 'gpu', test: { st: 'idle', lines: [] } },
+      calls: seedCalls(), filter: 'all', callId: null,
+      sheets: [], dialog: null, snack: null, incoming: null, live: null
+    };
+  }
+  function configured() {
+    var s = fresh();
+    s.route = 'today';
+    Object.keys(s.steps).forEach(function (k) { s.steps[k] = true; });
+    s.steps.samsung = false;
+    s.brain.primary = 'gemini';
+    s.brain.gemini.key = KEYS.gemOk;
+    return s;
+  }
+
+  var S = fresh();
+  var T = {}; // timers
+  function clearTimers() { Object.keys(T).forEach(function (k) { clearTimeout(T[k]); clearInterval(T[k]); }); T = {}; }
+
+  /* ---------------- derived state ---------------- */
+  function gm() { return GEM.filter(function (m) { return m.id === S.brain.gemini.model; })[0]; }
+  function om() { return GPT.filter(function (m) { return m.id === S.brain.openai.model; })[0]; }
+  function localModel() { return S.local.gemma.st === 'installed' ? 'gemma' : (S.local.qwen.st === 'installed' ? 'qwen' : null); }
+  function brainNow() {
+    var b = S.brain, lm = localModel();
+    if (b.primary === 'local') return lm ? { kind: 'local', model: lm } : null;
+    if (b[b.primary] && b[b.primary].key && S.online) return { kind: b.primary };
+    if (lm && b.backup) return { kind: 'local', model: lm, why: S.online ? 'nokey' : 'offline' };
+    return null;
+  }
+  function brainName(b) {
+    if (!b) return 'no brain';
+    if (b.kind === 'gemini') return 'Gemini ' + gm().short;
+    if (b.kind === 'openai') return om().name;
+    return LOCAL[b.model].name;
+  }
+  function brainShort(b) {
+    if (!b) return 'no brain';
+    if (b.kind === 'gemini') return 'gemini';
+    if (b.kind === 'openai') return 'chatgpt';
+    return LOCAL[b.model].short + ' · on-device';
+  }
+  function speedOf(b) {
+    if (!b) return 0;
+    if (b.kind === 'gemini') return gm().s;
+    if (b.kind === 'openai') return om().s;
+    return S.local.unit === 'gpu' ? LOCAL[b.model].gpu : LOCAL[b.model].cpu;
+  }
+  function replyTime(b) { return Math.max(0.6, +(speedOf(b) + (Math.random() * 0.3 - 0.15)).toFixed(1)); }
+  function setupLeft() { return STEPS.filter(function (s) { return !S.steps[s.id]; }).length; }
+  function initial() { return (S.owner || 'R').trim().charAt(0).toUpperCase() || 'R'; }
+  function ownerHi() { return /^rahul$/i.test((S.owner || '').trim()) ? 'राहुल' : (S.owner || 'राहुल'); }
+  function fem() { return S.persona.voice === 'f'; }
+  function langLabel() { return LANGS.filter(function (l) { return l[0] === S.persona.lang; })[0][1]; }
+  function fmtDur(s) { return Math.floor(s / 60) + 'm ' + String(s % 60).padStart(2, '0') + 's'; }
+  function clock(s) { return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
+  function todayLabel() {
+    try { return new Date().toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' }).toLowerCase().replace(',', ''); } catch (e) { return 'today'; }
+  }
+  function nowTime() {
+    try { return new Date().toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' }).toLowerCase(); } catch (e) { return 'now'; }
+  }
+  function greeting() {
+    var p = S.persona, o = S.owner || 'Rahul', oh = ownerHi(), n = p.name || 'Saathi', f = fem();
+    if (p.lang === 'en') return 'Hi, this is ' + n + ', ' + o + '’s assistant. ' + o + ' can’t take the call right now. How can I help?';
+    if (p.lang === 'mr') return 'नमस्कार, मी ' + n + ', ' + oh + ' ' + (f ? 'यांची' : 'यांचा') + ' सहाय्यक. ' + oh + ' सध्या व्यस्त आहेत. मी काय मदत करू?';
+    if (p.lang === 'hing') return 'Namaste, main ' + n + ' hoon, ' + o + ' ' + (f ? 'ki' : 'ka') + ' assistant. ' + o + ' abhi busy hain. Bataiye, kya madad karun?';
+    return 'नमस्ते, मैं ' + n + ' हूँ, ' + oh + ' ' + (f ? 'की' : 'का') + ' असिस्टेंट। ' + oh + ' अभी व्यस्त हैं। बताइए, मैं क्या मदद करूँ?';
+  }
+  function checkKey(p, v) {
+    v = (v || '').trim();
+    if (!v) return '';
+    if (p === 'gemini') {
+      if (v.indexOf('AIza') !== 0) return 'Gemini keys start with “AIza”. This looks like a different kind of key.';
+      if (v.length !== 39) return 'Gemini keys are 39 characters. This one has ' + v.length + '.';
+    } else {
+      if (v.indexOf('sk-') !== 0) return 'OpenAI keys start with “sk-”.';
+      if (v.length < 40) return 'This looks cut off. OpenAI keys are much longer (this one has ' + v.length + ').';
+    }
+    return '';
+  }
+  function mask(k) { return k.slice(0, 4) + '••••••••••' + k.slice(-4); }
+
+  /* ---------------- callers + scripts ---------------- */
+  var CALLERS = {
+    mom: { id: 'mom', name: 'Mom', av: 'M', number: '+91 98200 •••••', where: 'mobile', tag: null, known: true,
+      line: 'Coming home tonight? Pick up milk.',
+      summary: 'Asked if you’re coming home this evening. Pick up milk on the way.',
+      script: function (o, oh, f) {
+        return [
+          ['राहुल, शाम को घर आ रहे हो ना?', 'नमस्ते! ' + oh + ' अभी मीटिंग में हैं। मैं उन्हें बता ' + (f ? 'दूँगी' : 'दूँगा') + '। कुछ और कहना है?', 'Hi! ' + o + ' is in a meeting right now. I’ll pass it on. Anything else?'],
+          ['हाँ, आते वक़्त दूध ले आना।', 'ज़रूर, मैंने लिख लिया है: आते वक़्त दूध लाना है।', 'Sure, noted: pick up milk on the way home.'],
+          ['ठीक है, बाय।', null, null]
+        ];
+      } },
+    courier: { id: 'courier', name: '+91 99301 •••••', saveAs: 'Courier', av: 'C', number: '+91 99301 •••••', where: 'Mumbai · not in contacts', tag: null, known: false,
+      line: 'Parcel left with the guard. OTP not shared.',
+      summary: 'Parcel left with the building guard. The courier asked for an OTP and Saathi didn’t share it.',
+      script: function (o, oh, f) {
+        return [
+          ['Hello sir, parcel hai. Gate pe koi nahi hai.', 'नमस्ते! ' + oh + ' अभी व्यस्त हैं। पार्सल गार्ड के पास छोड़ दीजिए।', 'Hello! ' + o + ' is busy right now. Please leave the parcel with the guard.'],
+          ['Delivery ke liye OTP chahiye.', 'माफ़ कीजिए, मैं OTP शेयर नहीं कर ' + (f ? 'सकती' : 'सकता') + '। ' + oh + ' आपको जल्दी कॉल करेंगे।', 'Sorry, I can’t share the OTP. ' + o + ' will call you back soon.'],
+          ['Theek hai, guard ko de deta hoon.', null, null]
+        ];
+      } },
+    spam: { id: 'spam', name: '+91 80 4718 ••••', av: '!', number: '+91 80 4718 ••••', where: 'Suspected spam', tag: 'spam', known: false,
+      line: 'Loan offer. Declined, asked them to stop.',
+      summary: 'Pre-approved loan pitch. Saathi declined and asked them to remove the number.',
+      script: function (o, oh) {
+        return [
+          ['Sir, aapke liye 5 lakh ka pre-approved personal loan hai, sirf aaj ke liye.', 'धन्यवाद, लेकिन ' + oh + ' को लोन नहीं चाहिए। कृपया यह नंबर अपनी लिस्ट से हटा दें।', 'Thanks, but ' + o + ' doesn’t need a loan. Please remove this number from your list.'],
+          ['Sir bas do minute, koi documents nahi chahiye…', 'माफ़ कीजिए, हमें रुचि नहीं है। धन्यवाद।', 'Sorry, we’re not interested. Thank you.']
+        ];
+      } }
+  };
+
+  /* ---------------- render ---------------- */
+  function render() {
+    var ae = document.activeElement, fid = null, sel = null;
+    if (ae && ae.id && app.contains(ae)) {
+      fid = ae.id;
+      try { if (typeof ae.selectionStart === 'number') sel = [ae.selectionStart, ae.selectionEnd]; } catch (e) { sel = null; }
+    }
+    var sc = {};
+    app.querySelectorAll('[data-scroll]').forEach(function (el) { sc[el.getAttribute('data-scroll')] = el.scrollTop; });
+
+    app.innerHTML = vRoute() + vSheets() + vDialog() + vSnack();
+
+    app.querySelectorAll('[data-scroll]').forEach(function (el) {
+      var k = el.getAttribute('data-scroll');
+      if (k === 'live') el.scrollTop = el.scrollHeight;
+      else if (sc[k] != null) el.scrollTop = sc[k];
+    });
+    if (fid) {
+      var el = document.getElementById(fid);
+      if (el) {
+        el.focus({ preventScroll: true });
+        if (sel) { try { el.setSelectionRange(sel[0], sel[1]); } catch (e) { /* not a text field */ } }
+      }
+    }
+    S.sheets.forEach(function (s) { s.entered = true; });
+    if (S.dialog) S.dialog.entered = true;
+    if (S.snack) S.snack.entered = true;
+    S.routeEntered = S.route;
+    renderPanel();
+  }
+  function cls(base, on) { return base + (on ? '' : ' enter'); }
+
+  function vRoute() {
+    switch (S.route) {
+      case 'setup': return vSetup();
+      case 'calls': return vCalls();
+      case 'call': return vCall();
+      case 'incoming': return vIncoming();
+      case 'live': return vLive();
+      default: return vToday();
+    }
+  }
+  function fadeCls() { return S.routeEntered === S.route ? '' : ' fade'; }
+
+  /* ---------- setup ---------- */
+  function currentStep() {
+    if (S.focus && !S.steps[S.focus]) return S.focus;
+    var s = STEPS.filter(function (x) { return !S.steps[x.id]; })[0];
+    return s ? s.id : null;
+  }
+  function vSetup() {
+    var done = 7 - setupLeft(), cur = currentStep(), all = done === 7;
+    var h = '<section class="screen' + fadeCls() + '" aria-label="Setup"><div class="scroll" data-scroll="setup">' +
+      '<div class="glow" style="width:420px;height:420px;right:-220px;top:-170px;background:radial-gradient(circle,rgba(200,255,46,.22),rgba(200,255,46,0) 65%)"></div><div class="pad">' +
+      '<div class="top"><span class="lbl">setup · ' + done + ' of 7 done</span>' +
+      (S.review ? '<button class="link dim" data-a="go" data-v="today">Done</button>' : '<button class="link dim" data-a="setupLater">Later</button>') + '</div>' +
+      '<div class="segs" aria-hidden="true">' + STEPS.map(function (s) { return '<i class="' + (S.steps[s.id] ? 'on' : (s.id === cur ? 'cur' : '')) + '"></i>'; }).join('') + '</div>' +
+      (all ? '<h1 class="h1 s36">You’re all<br><span class="lime">set.</span></h1>' : '<h1 class="h1 s36">Seven taps<br>to <span class="lime">ready.</span></h1>') +
+      '<div class="smoke list" style="padding:4px 0">' + STEPS.map(function (s, i) { return vStep(s, i, cur); }).join('<div class="hr"></div>') + '</div>';
+    if (all) h += '<button class="btn l" data-a="setupFinish">' + (S.review ? 'Back to Today' : 'Start Saathi') + '</button>';
+    return h + '</div></div></section>';
+  }
+  function vStep(s, i, cur) {
+    var ok = S.steps[s.id];
+    var mark = ok ? OK(22) : '<span class="numc' + (s.id === cur ? ' cur' : '') + '">' + (i + 1) + '</span>';
+    if (s.id !== cur || ok) {
+      var okLabel = s.id === 'brain' ? brainShort(brainNow()).split(' ·')[0] : s.ok;
+      return '<button class="step" data-a="focusStep" data-v="' + s.id + '"' + (ok ? ' disabled' : '') + '>' + mark +
+        '<span class="mn"><span class="t1' + (ok ? '' : ' dim') + '" style="font-size:14.5px">' + s.title + '</span><span class="t2 ell">' + s.sub + '</span></span>' +
+        (ok ? '<span class="mono lime" style="font-size:11px">' + okLabel + '</span>' : '') + '</button>';
+    }
+    var busy = S.busy[s.id];
+    var h = '<div class="stepx"><div style="display:flex;align-items:center;gap:12px">' + mark + '<span class="mn"><span class="t1" style="font-size:15.5px">' + s.title + '</span>';
+    if (s.id === 'brain') return h + vBrainStepSub() + '</span></div>' + vBrainStep() + '</div>';
+    h += '<span class="t2">' + s.sub + '</span></span></div>';
+    if (s.id === 'samsung') {
+      h += '<p class="why">In the Samsung Phone app, open ⋮ › Settings and set these two:</p>' +
+        '<p class="subchk">' + I('msg', 16, 'lime') + 'Text call: <b>On</b></p>' +
+        '<p class="subchk">' + I('phone', 16, 'lime') + 'Call display while using apps: <b>Full screen</b></p>';
+    } else {
+      h += '<p class="why">' + s.why + '</p>';
+    }
+    h += '<div class="btnrow"><button class="btn l sm" data-a="grant" data-v="' + s.id + '"' + (busy ? ' disabled' : '') + '>' + (busy ? SP(16) + (s.id === 'samsung' ? 'Waiting for you…' : 'Opening…') : esc(s.btn)) + '</button></div>';
+    return h + '</div>';
+  }
+  function vBrainStepSub() {
+    var g = S.local.gemma;
+    if (g.st === 'installed') return '<span class="okline" style="margin-top:4px">' + I('check', 12, '', 3) + 'gemma 4 e2b installed · works offline</span>';
+    if (g.st === 'none') return '<span class="t2">Download an offline brain, or add a Gemini key.</span>';
+    return '<span class="t2">Downloading Gemma 4 E2B…</span>';
+  }
+  function vBrainStep() {
+    var g = S.local.gemma, k = S.sk, fmt = checkKey('gemini', k.draft), err = k.state === 'bad' ? k.err : fmt;
+    var can = k.draft.trim() && !fmt && k.state !== 'checking';
+    var h = '';
+    if (g.st === 'none') h += '<div class="btnrow"><button class="btn g sm" data-a="download" data-v="gemma">' + I('down', 16) + 'Download Gemma 4 E2B · 2.6 GB</button></div>';
+    else if (g.st !== 'installed') h += vDlBar('gemma');
+    h += '<label class="lbl" for="sk-key" style="display:block;margin-top:14px;font-size:10px">gemini key · optional, ~1.2 s replies</label>' +
+      '<div class="keyf' + (err ? ' bad' : '') + '"><input id="sk-key" data-in="skKey" value="' + esc(k.draft) + '" placeholder="AIza…" autocomplete="off" spellcheck="false"' + (err ? ' aria-invalid="true" aria-describedby="sk-err"' : '') + '></div>';
+    if (err) h += '<p class="err" id="sk-err">' + I('alert', 16) + '<span>' + esc(err) + '</span></p>';
+    h += '<div class="btnrow"><button class="btn l sm" data-a="skVerify"' + (can ? '' : ' disabled') + '>' + (k.state === 'checking' ? SP(16) + 'Verifying…' : 'Verify key') + '</button>' +
+      (localModel() ? '<button class="link dim" data-a="skGemma" style="font-size:13.5px">Use Gemma for now</button>' : '') + '</div>' +
+      '<a class="mono lime" href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" style="display:block;margin-top:10px;font-size:11.5px;text-decoration:none">get a free key at aistudio.google.com ↗</a>';
+    return h;
+  }
+
+  /* ---------- today ---------- */
+  function vToday() {
+    var needs = S.calls.filter(function (c) { return c.tag === 'urgent' && c.open; });
+    var rest = S.calls.filter(function (c) { return !(c.tag === 'urgent' && c.open); });
+    var n = S.calls.length, spam = S.calls.filter(function (c) { return c.tag === 'spam'; }).length;
+    var saved = S.calls.reduce(function (a, c) { return a + c.dur; }, 0);
+    var b = brainNow(), left = setupLeft();
+    var st = S.mode === 'off' ? ['off', 'var(--ink3)'] : !b ? ['no brain', 'var(--red)'] : S.mode === 'ask' ? ['ask me', 'var(--lime)'] : ['auto · ' + S.delay + ' s', 'var(--lime)'];
+    var h = '<section class="screen' + fadeCls() + '" aria-label="Today"><div class="scroll" data-scroll="today">' +
+      '<div class="glow" style="width:440px;height:440px;right:-220px;top:-150px;background:radial-gradient(circle,rgba(200,255,46,.26),rgba(200,255,46,0) 65%)"></div><div class="pad">' +
+      '<div class="top"><span class="word">saathi<span class="lime">.</span></span>' +
+      '<button class="avatar" data-a="sheet" data-v="you" aria-label="You and Saathi settings' + (left ? ', ' + left + ' setup steps left' : '') + '">' + esc(initial()) + (left ? '<span class="adot"></span>' : '') + '</button></div>' +
+      '<div class="top tight"><span class="lbl">today · ' + todayLabel() + '</span><span class="lbl status" style="color:' + st[1] + '"><i style="background:' + st[1] + ';box-shadow:0 0 10px ' + st[1] + '"></i>' + st[0] + '</span></div>';
+    if (!S.online) {
+      h += '<div class="banner ' + (b ? 'lime' : 'amb') + '">' + I('nowifi', 18, b ? 'lime' : 'amb') + '<span>' +
+        (b ? 'You’re offline. <b>' + esc(brainName(b)) + '</b> answers calls on this phone.' : 'You’re offline and no offline brain is ready, so Saathi can’t answer.') + '</span></div>';
+    }
+    h += '<h1 class="h1">' + n + ' call' + (n === 1 ? '' : 's') + '<br>handled.<br><span class="lime">' +
+      (needs.length ? needs.length + (needs.length === 1 ? ' needs' : ' need') + ' you.' : 'All clear.') + '</span></h1>' +
+      '<div class="smoke stats"><div><b>' + n + '</b><span class="lbl">answered</span></div><div><b class="amb">' + spam + '</b><span class="lbl">spam stopped</span></div><div><b class="lime">' + fmtDur(saved) + '</b><span class="lbl">time saved</span></div></div>' +
+      '<div class="smoke modes"><div class="segrow">' + [['off', 'Off'], ['ask', 'Ask me'], ['auto', 'Auto']].map(function (m) {
+        return '<button class="seg' + (S.mode === m[0] ? ' on' : '') + '" data-a="mode" data-v="' + m[0] + '" aria-pressed="' + (S.mode === m[0]) + '">' + m[1] + '</button>';
+      }).join('') + '</div>' +
+      (S.mode === 'auto'
+        ? '<div class="delay"><span class="mono xs dim mn">picks up after</span><button class="stepb" data-a="delay" data-v="-1" aria-label="Shorter delay">' + I('minus', 16) + '</button><span class="mono lime dnum">' + S.delay + ' s</span><button class="stepb" data-a="delay" data-v="1" aria-label="Longer delay">' + I('plus', 16) + '</button></div>'
+        : '<p class="mono xs dim mhint">' + (S.mode === 'off' ? 'saathi stays quiet. calls ring as usual.' : 'a button pops up on the call screen. you decide.') + '</p>') + '</div>';
+    if (needs.length) h += '<p class="lbl">[ needs you ]</p>' + needs.map(vNeedCard).join('');
+    h += '<div class="top tight"><span class="lbl">[ handled · ' + rest.length + ' ]</span><button class="link lbl lime" data-a="go" data-v="calls">all calls →</button></div>';
+    h += rest.length ? '<div class="smoke list">' + rest.slice(0, 4).map(vCallRow).join('<div class="hr"></div>') + '</div>'
+      : '<p class="empty">Nothing else yet. Use “Simulate a call” in the demo controls to try one.</p>';
+    h += '</div></div>';
+    var pill;
+    if (!b) pill = I('alert', 16, 'red') + '<span class="mono xs red">no brain · set one up</span>';
+    else if (b.kind === 'local') pill = I('cpu', 16, 'lime') + '<span class="mono xs">' + LOCAL[b.model].short + ' · on-device</span>';
+    else pill = I('spark', 16, 'lime') + '<span class="mono xs">' + brainShort(b) + ' · <span class="lime">' + speedOf(b) + ' s</span></span>' + (localModel() && S.brain.backup ? '<span class="mono xs dim">· gemma offline</span>' : '');
+    h += '<button class="bpill" data-a="sheet" data-v="brain" aria-label="Brain settings">' + pill + '</button>';
+    return h + '</section>';
+  }
+  function vNeedCard(c) {
+    return '<div class="smoke pan need"><button class="rowbtn" data-a="openCall" data-v="' + c.id + '"><span class="av">' + esc(c.av) + '</span><span class="mn"><span class="t1">' + esc(c.name) + ' <span class="tag r">urgent</span></span><span class="t2 ell">' + esc(c.line) + '</span></span><span class="mono xs dim">' + c.when + '</span></button>' +
+      '<div class="btnrow"><button class="btn l sm grow" data-a="callBack" data-v="' + c.id + '">' + I('phone', 16) + 'Call back</button><button class="btn g sm grow" data-a="openCall" data-v="' + c.id + '">Transcript</button></div></div>';
+  }
+  function vCallRow(c) {
+    var spam = c.tag === 'spam';
+    return '<button class="row" data-a="openCall" data-v="' + c.id + '"><span class="av' + (spam ? ' amb' : '') + '">' + (spam ? I('warn', 18) : esc(c.av)) + '</span><span class="mn"><span class="t1">' +
+      (c.unknown ? '<span class="num">' + esc(c.name) + '</span>' : esc(c.name)) +
+      (spam ? ' <span class="tag a">spam</span>' : '') + (c.tag === 'urgent' ? ' <span class="tag r">urgent</span>' : '') +
+      '</span><span class="t2 ell">' + esc(c.line) + '</span></span><span class="mono xs dim">' + c.when + '</span></button>';
+  }
+
+  /* ---------- calls list + detail ---------- */
+  function vCalls() {
+    var f = S.filter, list = S.calls.filter(function (c) { return f === 'all' || c.tag === f; });
+    var count = function (t) { return S.calls.filter(function (c) { return c.tag === t; }).length; };
+    var h = '<section class="screen' + fadeCls() + '" aria-label="All calls"><div class="scroll" data-scroll="calls"><div class="pad">' +
+      '<div class="top"><button class="back" data-a="go" data-v="today">' + I('back', 20) + 'Today</button><span class="lbl">all calls</span></div>' +
+      '<h1 class="h2">Every call,<br><span class="lime">summarised.</span></h1>' +
+      '<div class="chips" style="margin-top:0">' + [['all', 'All · ' + S.calls.length], ['urgent', 'Urgent · ' + count('urgent')], ['spam', 'Spam · ' + count('spam')]].map(function (x) {
+        return '<button class="chip' + (f === x[0] ? ' on' : '') + '" data-a="filter" data-v="' + x[0] + '">' + x[1] + '</button>';
+      }).join('') + '</div>';
+    h += list.length ? '<div class="smoke list">' + list.map(vCallRow).join('<div class="hr"></div>') + '</div>' : '<p class="empty">No calls here.</p>';
+    return h + '</div></div></section>';
+  }
+  function vCall() {
+    var c = S.calls.filter(function (x) { return x.id === S.callId; })[0];
+    if (!c) { S.route = 'today'; return vToday(); }
+    var h = '<section class="screen' + fadeCls() + '" aria-label="Call detail"><div class="scroll" data-scroll="call"><div class="glow" style="width:420px;height:420px;right:-220px;top:-170px;background:radial-gradient(circle,rgba(200,255,46,.2),rgba(200,255,46,0) 65%)"></div><div class="pad" style="padding-bottom:120px">' +
+      '<div class="top"><button class="back" data-a="go" data-v="' + (S.prev === 'calls' ? 'calls' : 'today') + '" style="font-size:15px">' + I('back', 20) + (S.prev === 'calls' ? 'All calls' : 'Today') + '</button><span class="lbl">' + esc(c.when === 'now' ? 'just now' : 'today') + ' · ' + esc(c.time) + '</span></div>' +
+      '<div><div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><h1 style="font-size:' + (c.unknown ? '32px' : '54px') + ';font-weight:700;letter-spacing:-.05em;line-height:1" class="' + (c.unknown ? 'mono' : '') + '">' + esc(c.name) + '</h1>' +
+      (c.tag === 'urgent' ? '<span class="tag r">urgent</span>' : '') + (c.tag === 'spam' ? '<span class="tag a">spam</span>' : '') + '</div>' +
+      '<p class="mono dim" style="font-size:12px;margin-top:8px">' + esc(c.number) + ' · ' + fmtDur(c.dur) + ' · answered with ' + esc(c.brain) + '</p></div>' +
+      '<div class="smoke pan"><span class="lbl lime">[ ai summary ]</span><p style="font-size:16px;line-height:1.45;margin-top:8px">' + esc(c.summary) + '</p></div>' +
+      '<p class="lbl">[ transcript · ' + esc(c.lang) + ' ]</p><div class="tx">' +
+      c.tx.map(function (t) { return '<p class="bub ' + t[0] + '">' + esc(t[1]) + '</p>' + (t[0] === 'you' ? '<span class="bmeta">you typed</span>' : ''); }).join('') + '</div>' +
+      '</div></div>' +
+      '<div style="position:absolute;left:20px;right:20px;bottom:calc(24px + env(safe-area-inset-bottom,0px));display:flex;gap:10px">' +
+      '<button class="btn l grow" data-a="callBack" data-v="' + c.id + '">' + I('phone', 18) + 'Call back</button>' +
+      '<button class="btn" data-a="delCall" data-v="' + c.id + '" aria-label="Delete call" style="width:52px;flex:none;background:transparent;border:1px solid rgba(255,77,94,.55);color:var(--red)">' + I('trash', 20) + '</button></div>';
+    return h + '</section>';
+  }
+
+  /* ---------- incoming + live ---------- */
+  function vIncoming() {
+    var inc = S.incoming, c = inc.caller, b = brainNow();
+    var h = '<section class="screen' + fadeCls() + '" aria-label="Incoming call" style="background:linear-gradient(180deg,#121212 0%,#050505 100%)">' +
+      '<div class="glow" style="width:560px;height:560px;left:-85px;top:300px;background:radial-gradient(circle,rgba(200,255,46,.18),rgba(200,255,46,0) 62%)"></div>' +
+      '<div class="pad" style="padding-top:calc(var(--top) + 28px);align-items:center;text-align:center;height:100%;gap:0">' +
+      '<span class="lbl">incoming call · ' + esc(c.where) + '</span>' +
+      (c.known ? '<h2 style="margin-top:14px;font-size:56px;font-weight:700;letter-spacing:-.05em;line-height:1">' + esc(c.name) + '</h2><p class="mono dim" style="margin-top:10px;font-size:13px">' + esc(c.number) + '</p>'
+        : '<h2 class="mono" style="margin-top:16px;font-size:30px;font-weight:500;letter-spacing:-.02em">' + esc(c.number) + '</h2>');
+    if (S.mode === 'off') {
+      h += '<p class="mono dim" style="margin-top:56px;font-size:12px">saathi is off · turn it on from Today</p>';
+    } else if (inc.back) {
+      h += '<p class="mono dim" style="margin-top:56px;font-size:12px">saathi stepped back for this call</p>';
+    } else if (!b) {
+      h += '<div class="smoke" style="margin-top:48px;width:100%;padding:16px;border-radius:24px;text-align:left;background:rgba(18,18,18,.82)"><p class="lbl red">saathi can’t answer</p><p style="margin-top:8px;font-size:14px;line-height:1.45;color:var(--ink2)">' +
+        (S.online ? 'No brain is set up. Add a Gemini key or download Gemma.' : 'You’re offline and no offline brain is ready.') + '</p></div>';
+    } else {
+      var auto = S.mode === 'auto', pct = auto ? Math.max(0, Math.round(inc.t / S.delay * 100)) : 100;
+      h += '<div class="smoke" style="margin-top:48px;width:100%;padding:18px 16px 10px;border-radius:24px;text-align:left;background:rgba(18,18,18,.82)">' +
+        '<div style="display:flex;align-items:center;gap:10px"><span style="width:34px;height:34px;border-radius:10px;background:var(--lime);color:var(--onlime);display:flex;align-items:center;justify-content:center">' + I(b.kind === 'local' ? 'cpu' : 'spark', 18, '', 2.2) + '</span>' +
+        '<span class="mn"><span class="lbl" style="display:block;color:var(--ink)">saathi can take this</span><span class="mono dim" style="display:block;font-size:11px;margin-top:3px">' + (c.known ? 'greets ' + esc(c.name) : 'asks who it is') + ' · ' + esc(langLabel()) + ' · ' + esc(brainShort(b)) + '</span></span></div>' +
+        '<button data-a="letAnswer" style="position:relative;display:block;overflow:hidden;margin-top:16px;width:100%;height:60px;border-radius:16px;border:0;cursor:pointer;background:rgba(200,255,46,.35);color:var(--onlime);box-shadow:0 0 40px -6px rgba(200,255,46,.55)">' +
+        '<span style="position:absolute;left:0;top:0;bottom:0;width:' + pct + '%;background:var(--lime);transition:width 1s linear"></span>' +
+        '<span style="position:relative;display:flex;align-items:center;justify-content:space-between;height:60px;padding:0 18px;font-weight:700;font-size:17px">Let Saathi answer' + (auto ? '<span class="mono" style="font-size:14px">auto · ' + inc.t + '</span>' : '') + '</span></button>' +
+        '<button class="link dim" data-a="notNow" style="width:100%;height:44px;font-size:14px;margin-top:2px">Not this time</button></div>';
+    }
+    h += '<div style="margin-top:auto;margin-bottom:calc(44px + env(safe-area-inset-bottom,0px));width:100%;display:flex;justify-content:space-between;padding:0 22px">' +
+      '<div style="display:flex;flex-direction:column;align-items:center;gap:10px"><button class="callbtn" data-a="decline" aria-label="Decline" style="border:1.5px solid var(--red);color:var(--red);background:none">' + I('phone', 26).replace('<svg', '<svg style="transform:rotate(135deg)"') + '</button><span class="lbl">decline</span></div>' +
+      '<div style="display:flex;flex-direction:column;align-items:center;gap:10px"><button class="callbtn" data-a="answerSelf" aria-label="Answer myself" style="background:var(--ink);color:var(--onlime);border:0">' + I('phone', 26) + '</button><span class="lbl">answer myself</span></div></div>';
+    return h + '</div></section>';
+  }
+  function vLive() {
+    var L = S.live, c = L.caller;
+    var pill;
+    if (L.mode === 'ai') {
+      pill = '<div class="livepill" role="status"><span class="pulse"></span><span class="mn"><span class="mono lime" style="display:block;font-size:11.5px;font-weight:600;letter-spacing:.1em">SAATHI ON CALL</span><span class="mono dim" style="display:block;font-size:11px;margin-top:2px">' + esc(brainShort(L.brain)) + ' · ' + clock(L.sec) + '</span></span>' +
+        '<button class="pillbtn" data-a="stopAI" style="background:var(--red);color:var(--onlime)">' + I('stop', 14, '', 2.6) + 'Stop AI</button></div>';
+    } else if (L.mode === 'you') {
+      pill = '<div class="livepill you" role="status"><span class="mn"><span class="mono" style="display:block;font-size:11.5px;font-weight:600;letter-spacing:.1em">YOU’RE ON THE CALL</span><span class="mono dim" style="display:block;font-size:11px;margin-top:2px">saathi stopped · ' + clock(L.sec) + '</span></span>' +
+        '<button class="pillbtn" data-a="endCall" style="background:var(--red);color:var(--onlime)">End call</button></div>';
+    } else {
+      pill = '<div class="livepill you" role="status">' + SP(18, 'lime') + '<span class="mn"><span class="mono" style="display:block;font-size:11.5px;font-weight:600;letter-spacing:.1em">CALL ENDED · ' + clock(L.sec) + '</span><span class="mono dim" style="display:block;font-size:11px;margin-top:2px">writing summary…</span></span></div>';
+    }
+    var h = '<section class="screen' + fadeCls() + '" aria-label="Call in progress" style="background:#0A0A0A">' + pill +
+      '<div class="scroll" data-scroll="live"><div class="pad" style="padding-top:calc(var(--top) + 36px);padding-bottom:120px">' +
+      '<div style="text-align:center"><p style="font-size:' + (c.known ? '22px' : '19px') + ';font-weight:600" class="' + (c.known ? '' : 'mono') + '">' + esc(c.known ? c.name : c.number) + '</p><p class="mono dim" style="font-size:12px;margin-top:4px">text call · ' + clock(L.sec) + '</p></div>' +
+      '<div class="tx" style="margin-top:10px">';
+    L.lines.forEach(function (x) {
+      if (x.who === 'in') h += '<p class="bub in">' + esc(x.text) + '</p>';
+      else if (x.who === 'out') h += '<p class="bub fill">' + esc(x.text) + '</p><span class="bmeta">replied in ' + x.rt.toFixed(1) + ' s</span>';
+      else h += '<p class="bub you">' + esc(x.text) + '</p><span class="bmeta">you typed · samsung speaks it</span>';
+    });
+    if (L.listening && L.mode === 'ai') h += '<p class="bmeta l" style="margin-top:0">' + SP(12).replace('class="ic', 'style="display:inline-block;vertical-align:-2px;margin-right:6px" class="ic') + 'caller is speaking…</p>';
+    if (L.typing) h += '<div style="align-self:flex-end;display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:16px;border:1px dashed rgba(200,255,46,.5)">' + SP(14, 'lime') + '<span class="mono lime" style="font-size:12px">' + esc(S.persona.name) + ' is replying…</span></div>';
+    if (L.hungUp) h += '<p class="bmeta l" style="margin-top:4px">caller hung up</p>';
+    h += '</div></div></div>';
+    if (L.mode === 'you') {
+      h += '<form class="compose" data-form="send"><input id="live-msg" placeholder="Type a reply, Samsung speaks it" autocomplete="off" aria-label="Type a reply"><button class="endb" type="submit" aria-label="Send" style="background:var(--lime)">' + I('send', 20) + '</button></form>';
+    } else {
+      h += '<div class="compose"><input disabled value="' + (L.mode === 'ai' ? esc(S.persona.name) + ' is typing for you' : 'Call ended') + '" aria-label="Reply box"><button class="endb" data-a="endCall" aria-label="End call"' + (L.mode === 'ended' ? ' disabled style="opacity:.4"' : '') + '>' + I('phone', 24).replace('<svg', '<svg style="transform:rotate(135deg)"') + '</button></div>';
+    }
+    return h + '</section>';
+  }
+
+  /* ---------- sheets ---------- */
+  var SHEET_TITLE = { you: 'You', persona: 'Persona', brain: 'Brain', ondevice: 'On-device' };
+  function vSheets() {
+    if (!S.sheets.length) return '';
+    var first = S.sheets[0];
+    var h = '<div class="scrim' + (first.entered ? '' : ' enter') + (S.sheets.length === 1 && first.leave ? ' leave' : '') + '" data-a="sheetClose"></div>';
+    S.sheets.forEach(function (s, i) {
+      var below = S.sheets[i - 1];
+      var body = s.name === 'you' ? vYou() : s.name === 'persona' ? vPersona() : s.name === 'brain' ? vBrain() : vOnDevice();
+      var head;
+      if (s.name === 'you') {
+        head = '<div style="display:flex;align-items:center;gap:14px"><span style="width:56px;height:56px;border-radius:18px;background:var(--lime);color:var(--onlime);font-weight:700;font-size:24px;display:flex;align-items:center;justify-content:center;flex:none">' + esc(initial()) + '</span>' +
+          '<span class="mn"><span id="sh-you" style="display:block;font-size:26px;font-weight:700;letter-spacing:-.03em;line-height:1.05">' + esc(S.owner || 'You') + '</span><span class="mono dim" style="display:block;font-size:11.5px;margin-top:4px">Galaxy S21 FE · One UI 8.0</span></span>' +
+          '<button class="closeb" data-a="sheetClose" aria-label="Close">' + I('x', 18) + '</button></div>';
+      } else {
+        head = '<div class="top" style="min-height:44px">' +
+          (below ? '<button class="back" data-a="sheetClose">' + I('back', 20) + SHEET_TITLE[below.name] + '</button>' : '<button class="closeb" data-a="sheetClose" aria-label="Close">' + I('x', 18) + '</button>') +
+          '<span id="sh-' + s.name + '" style="font-weight:700;font-size:18px">' + SHEET_TITLE[s.name] + '</span><span class="lbl" style="font-size:10px;min-width:64px;text-align:right;white-space:nowrap">' + (s.name === 'ondevice' ? 'offline' : 'auto-saves') + '</span></div>';
+      }
+      h += '<div class="sheet ' + s.name + (s.entered ? '' : ' enter') + (s.leave ? ' leave' : '') + '" role="dialog" aria-modal="true" aria-labelledby="sh-' + s.name + '">' +
+        '<div class="shead"><button class="grab" data-a="sheetClose" aria-label="Close sheet"></button>' + head + '</div>' +
+        '<div class="sbody" data-scroll="sheet-' + s.name + '">' + body + '</div></div>';
+    });
+    return h;
+  }
+
+  function vYou() {
+    var pg = PERMS.filter(function (k) { return S.steps[k]; }).length, b = brainNow();
+    var bTag = !b ? '<span class="tag a">set up</span>' : (b.kind === 'local' ? '<span class="tag l">on-device</span>' : '<span class="tag l">verified</span>');
+    var bSub = !b ? 'No brain yet' : brainName(b) + (b.kind !== 'local' && localModel() && S.brain.backup ? ' · Gemma offline' : (b.kind === 'local' ? ' · on this phone' : ''));
+    var row = function (a, v, icon, tileCls, title, sub, right, subCls) {
+      return '<button class="row" data-a="' + a + '" data-v="' + v + '"><span class="tile ' + (tileCls || '') + '">' + I(icon, 18) + '</span><span class="mn"><span class="t1">' + title + '</span><span class="t2 ell' + (subCls ? ' ' + subCls : '') + '">' + sub + '</span></span>' + right + '</button>';
+    };
+    var chev = I('chev', 18, 'dim');
+    var h = '<p class="lbl" style="margin-top:4px">[ 01 — saathi ]</p><div class="smoke list" style="border-radius:18px">' +
+      row('sheet', 'persona', 'user', '', 'Persona', esc(S.persona.name) + ' · ' + (fem() ? 'Female' : 'Male') + ' · ' + esc(langLabel()) + ' · ' + STYLES.filter(function (x) { return x[0] === S.persona.style; })[0][1], chev) +
+      '<div class="hr"></div>' + row('sheet', 'brain', 'spark', b ? 'on' : 'warn', 'Brain ' + bTag, esc(bSub), chev) +
+      '<div class="hr"></div><div class="row"><span class="tile">' + I('msg', 18) + '</span><span class="mn"><span class="t1">Text-call greeting</span><span class="t2 ell">' + esc(greeting()) + '</span></span><button class="link lime" data-a="copyGreeting" style="display:flex;align-items:center;gap:6px;height:44px;font-size:13.5px;font-weight:600">' + I('copy', 16) + 'Copy</button></div></div>' +
+      '<p class="lbl">[ 02 — phone setup ]</p><div class="smoke list" style="border-radius:18px">' +
+      row('review', 'acc', 'shield', pg < 5 ? 'warn' : '', 'Permissions', pg + ' of 5 granted', pg < 5 ? '<span class="tag a">fix</span>' : OK(22)) +
+      '<div class="hr"></div>' + row('review', 'samsung', 'phone', S.steps.samsung ? '' : 'warn', 'Samsung call settings', S.steps.samsung ? 'Text call on · Full screen' : 'Call display is Mini, needs Full screen', S.steps.samsung ? OK(22) : '<span class="tag a">fix</span>', S.steps.samsung ? '' : 'amb') +
+      '<div class="hr"></div>' + row('review', 'battery', 'battery', S.steps.battery ? '' : 'warn', 'Run in background', S.steps.battery ? 'Battery · Unrestricted' : 'Battery may stop Saathi', S.steps.battery ? OK(22) : '<span class="tag a">fix</span>') + '</div>' +
+      '<p class="lbl">[ 03 — data ]</p><div class="smoke list" style="border-radius:18px">' +
+      row('go', 'calls', 'lock', '', 'Calls &amp; privacy', S.calls.length + ' calls · kept on this phone for 30 days', chev) + '</div>' +
+      '<p class="mono dim" style="font-size:11px;text-align:center;margin-top:8px">saathi · prototype v3</p>';
+    return h;
+  }
+
+  function vMark(sec) {
+    var m = S.persona.mark[sec];
+    if (m === 'saving') return '<span class="lbl saving">' + SP(12, 'lime') + 'saving…</span>';
+    if (m === 'saved') return '<span class="lbl saved">' + I('check', 12, '', 3) + 'saved</span>';
+    return '';
+  }
+  function vPersona() {
+    var p = S.persona;
+    var chips = function (arr, cur, a) {
+      return '<div class="chips">' + arr.map(function (x) { return '<button class="chip' + (x[0] === cur ? ' on' : '') + '" data-a="' + a + '" data-v="' + x[0] + '" aria-pressed="' + (x[0] === cur) + '">' + x[1] + '</button>'; }).join('') + '</div>';
+    };
+    return '<h2 style="font-size:30px;font-weight:700;letter-spacing:-.04em;line-height:1">How I talk for <span class="lime">you.</span></h2>' +
+      '<div class="smoke pan" style="border-radius:18px"><div class="top tight"><span class="lbl">01 — identity</span>' + vMark('id') + '</div>' +
+      '<div style="display:flex;gap:8px;margin-top:10px"><div class="fld"><label class="lbl" for="p-name" style="font-size:10px">assistant name</label><input id="p-name" class="inp" data-in="pName" value="' + esc(p.name) + '" maxlength="20"></div>' +
+      '<div class="fld"><label class="lbl" for="p-owner" style="font-size:10px">your name</label><input id="p-owner" class="inp" data-in="pOwner" value="' + esc(S.owner) + '" maxlength="24"></div></div>' +
+      '<div style="display:flex;align-items:center;gap:10px;margin-top:12px"><span class="lbl mn" style="font-size:10px">voice</span>' + vMark('voice') + '<div class="segbox">' +
+      [['f', 'Female'], ['m', 'Male']].map(function (v) { return '<button class="seg' + (p.voice === v[0] ? ' on' : '') + '" data-a="pVoice" data-v="' + v[0] + '" aria-pressed="' + (p.voice === v[0]) + '">' + v[1] + '</button>'; }).join('') + '</div></div></div>' +
+      '<div class="smoke pan" style="border-radius:18px"><div class="top tight"><span class="lbl">02 — reply language</span>' + vMark('lang') + '</div>' + chips(LANGS, p.lang, 'pLang') + '</div>' +
+      '<div class="smoke pan" style="border-radius:18px"><div class="top tight"><span class="lbl">03 — style</span>' + vMark('style') + '</div>' + chips(STYLES, p.style, 'pStyle') + '</div>' +
+      '<div class="smoke pan" style="border-radius:18px"><div class="top tight"><label class="lbl" for="p-ins">04 — instructions</label>' + (vMark('ins') || '<span class="lbl" style="font-size:10px">' + p.ins.split('\n').filter(function (x) { return x.trim(); }).length + ' rules</span>') + '</div>' +
+      '<textarea id="p-ins" class="inp" data-in="pIns" rows="3" style="margin-top:10px">' + esc(p.ins) + '</textarea>' +
+      '<div class="chips">' + RULES.map(function (r, i) { return '<button class="chip add" data-a="pRule" data-v="' + i + '">+ ' + esc(r) + '</button>'; }).join('') + '</div></div>' +
+      '<div class="smoke pan" style="border-radius:18px"><span class="lbl">05 — text-call greeting</span><p id="greet" style="font-size:14px;line-height:1.5;margin-top:8px;color:#D6D6D6">' + esc(greeting()) + '</p>' +
+      '<div class="btnrow"><button class="btn g sm" data-a="copyGreeting" style="color:var(--lime);border-color:rgba(200,255,46,.5)">' + I('copy', 16) + 'Copy greeting</button><span class="mono dim" style="font-size:11px;line-height:1.4">for Samsung’s<br>Text call greeting</span></div></div>';
+  }
+
+  function vKeyField(p) {
+    var k = S.brain[p], fmt = checkKey(p, k.draft), err = k.state === 'bad' ? k.err : fmt, id = 'key-' + p;
+    var can = k.draft.trim() && !fmt && k.state !== 'checking';
+    var h = '<label class="lbl" for="' + id + '" style="display:block;font-size:10px">' + (p === 'gemini' ? 'gemini' : 'openai') + ' api key</label>' +
+      '<div class="keyf' + (err ? ' bad' : '') + '"><input id="' + id + '" type="' + (k.show ? 'text' : 'password') + '" data-in="key" data-v="' + p + '" value="' + esc(k.draft) + '" placeholder="' + (p === 'gemini' ? 'AIza…' : 'sk-…') + '" autocomplete="off" spellcheck="false"' + (err ? ' aria-invalid="true" aria-describedby="' + id + '-err"' : '') + '>' +
+      '<button class="eye" data-a="keyShow" data-v="' + p + '" aria-label="' + (k.show ? 'Hide' : 'Show') + ' key">' + I(k.show ? 'eyeoff' : 'eye', 18) + '</button></div>';
+    if (err) h += '<p class="err" id="' + id + '-err">' + I('alert', 16) + '<span>' + esc(err) + '</span></p>';
+    h += '<div class="btnrow"><button class="btn l sm" data-a="keySave" data-v="' + p + '"' + (can ? '' : ' disabled') + '>' + (k.state === 'checking' ? SP(16) + 'Verifying with ' + (p === 'gemini' ? 'Google' : 'OpenAI') + '…' : 'Save &amp; verify') + '</button>' +
+      (k.key ? '<button class="link dim" data-a="keyCancel" data-v="' + p + '" style="font-size:13.5px">Cancel</button>' : '') + '</div>' +
+      '<a class="mono lime" href="' + (p === 'gemini' ? 'https://aistudio.google.com/apikey' : 'https://platform.openai.com/api-keys') + '" target="_blank" rel="noopener" style="display:block;margin-top:10px;font-size:11.5px;text-decoration:none">get a key at ' + (p === 'gemini' ? 'aistudio.google.com' : 'platform.openai.com') + ' ↗</a>';
+    return h;
+  }
+  function vKeyRow(p) {
+    var k = S.brain[p];
+    return '<div class="keyrow"><span class="mono dim mn" style="font-size:12px">' + esc(mask(k.key)) + '</span>' + OK(20) +
+      '<button class="link" data-a="keyEdit" data-v="' + p + '" style="padding:0 8px;font-size:13px;font-weight:600">Replace</button><button class="link red" data-a="keyRemove" data-v="' + p + '" style="font-size:13px;font-weight:600">Remove</button></div>';
+  }
+  function vModels(p) {
+    var list = p === 'gemini' ? GEM : GPT, k = S.brain[p];
+    return '<p class="lbl" style="font-size:10px;margin-top:12px">model · measured on your phone</p>' + list.map(function (m) {
+      var on = m.id === k.model;
+      return '<button class="mrow" data-a="model" data-v="' + p + ':' + m.id + '"' + (k.key ? '' : ' disabled') + '><span class="radio' + (on ? ' on' : '') + '"></span><span class="mn" style="font-size:14.5px;font-weight:600">' + m.short + ' <span class="dim" style="font-weight:400;font-size:12.5px">' + m.note + '</span></span><span class="mono" style="font-size:12.5px;color:' + (on ? 'var(--lime)' : 'var(--ink2)') + '">' + m.s.toFixed(1) + ' s</span></button>';
+    }).join('');
+  }
+  function vBrain() {
+    var b = S.brain, g = b.gemini, o = b.openai, L = S.local, prim = b.primary;
+    var h = '<p class="lbl" style="font-size:10px">[ answers your calls ]</p>';
+    // Gemini
+    h += '<div class="card' + (prim === 'gemini' ? ' on' : '') + '"><div class="chd"><span class="tile' + (prim === 'gemini' ? ' on' : '') + '">' + I('spark', 18) + '</span><span class="mn"><span class="t1">Gemini ' + (prim === 'gemini' ? '<span class="tag l">primary</span>' : '') + '</span><span class="t2">' + (g.key ? 'Cloud · key verified · ' + gm().short : 'Free key from Google AI Studio') + '</span></span>' +
+      '<button class="radio-b" data-a="setPrimary" data-v="gemini" aria-label="Make Gemini primary" aria-pressed="' + (prim === 'gemini') + '"><span class="radio' + (prim === 'gemini' ? ' on' : '') + '"></span></button></div><div class="cbody">' +
+      (!g.key || g.edit ? vKeyField('gemini') : vKeyRow('gemini')) + vModels('gemini') + '</div></div>';
+    // Gemma / local
+    var lm = localModel(), gs = L.gemma.st;
+    var lsub = gs === 'installed' ? 'On this phone · 2.6 GB · ' + L.unit.toUpperCase() : (gs === 'none' ? (lm ? 'Not downloaded · using ' + LOCAL[lm].name : 'Not downloaded · 2.6 GB') : 'Downloading · ' + Math.round(L.gemma.p * 100) + '%');
+    h += '<div class="card' + (prim === 'local' ? ' on' : '') + '" style="' + (prim !== 'local' && gs === 'installed' ? 'border-color:rgba(200,255,46,.25)' : '') + '"><div class="chd">' +
+      '<button class="chd-main" data-a="sheet" data-v="ondevice"><span class="tile' + (lm ? ' on' : '') + '">' + I('cpu', 18) + '</span><span class="mn"><span class="t1">Gemma 4 E2B ' + (gs === 'installed' ? '<span class="tag l">installed</span>' : '') + (prim === 'local' ? '<span class="tag l">primary</span>' : '') + '</span><span class="t2">' + lsub + '</span></span>' + I('chev', 18, 'dim') + '</button>' +
+      '<button class="radio-b" data-a="setPrimary" data-v="local" aria-label="Answer every call on this phone" aria-pressed="' + (prim === 'local') + '"><span class="radio' + (prim === 'local' ? ' on' : '') + '"></span></button></div>';
+    if (lm && prim !== 'local') {
+      h += '<div class="hr"></div><div style="display:flex;align-items:center;gap:12px;padding:12px 14px"><span class="mn"><label for="tg-backup" style="display:block;font-size:14.5px;font-weight:600">Answer when offline</label><span class="mono dim" style="display:block;font-size:11px;margin-top:3px">' + (b.backup ? 'no internet → gemma answers instead' : 'off · no internet means no answer') + '</span></span>' +
+        '<button id="tg-backup" class="tgl' + (b.backup ? ' on' : '') + '" data-a="toggleBackup" role="switch" aria-checked="' + b.backup + '" aria-label="Use Gemma when offline"></button></div>';
+    } else if (prim === 'local') {
+      h += '<div class="cbody"><p class="mono dim" style="font-size:11px">every call stays on this phone · no internet needed</p></div>';
+    } else if (gs === 'none') {
+      h += '<div class="cbody"><button class="btn g sm" data-a="download" data-v="gemma">' + I('down', 16) + 'Download · 2.6 GB</button></div>';
+    } else {
+      h += '<div class="cbody">' + vDlBar('gemma') + '</div>';
+    }
+    h += '</div>';
+    // ChatGPT
+    var oOpen = b.open === 'openai';
+    h += '<div class="card' + (prim === 'openai' ? ' on' : '') + '"><div class="chd"><button class="chd-main" data-a="openOpenAI" aria-expanded="' + oOpen + '"><span class="tile' + (prim === 'openai' ? ' on' : '') + '">' + I('cloud', 18) + '</span><span class="mn"><span class="t1">ChatGPT ' + (prim === 'openai' ? '<span class="tag l">primary</span>' : '') + '</span><span class="t2">' + (o.key ? 'Key verified · ' + om().name : 'GPT-5.4 nano · mini · needs OpenAI key') + '</span></span>' + I(oOpen ? 'minus' : 'plus', 16, 'dim') + '</button>' +
+      '<button class="radio-b" data-a="setPrimary" data-v="openai" aria-label="Make ChatGPT primary" aria-pressed="' + (prim === 'openai') + '"><span class="radio' + (prim === 'openai' ? ' on' : '') + '"></span></button></div>';
+    if (oOpen) h += '<div class="cbody">' + (!o.key || o.edit ? vKeyField('openai') : vKeyRow('openai')) + vModels('openai') + '</div>';
+    return h + '</div>';
+  }
+  function vDlBar(id) {
+    var m = S.local[id], M = LOCAL[id];
+    if (m.st === 'checking') return '<p class="okline" style="color:var(--ink2)">' + SP(14, 'lime') + 'checking free space…</p>';
+    if (m.st === 'verifying') return '<p class="okline" style="color:var(--ink2)">' + SP(14, 'lime') + 'verifying the file…</p>';
+    var left = Math.max(1, Math.ceil((1 - m.p) * M.size * 1000 / 14 / 60));
+    var paused = m.userPaused || !S.online;
+    return '<div class="bar" style="margin-top:10px" role="progressbar" aria-label="' + M.name + ' download" aria-valuenow="' + Math.round(m.p * 100) + '" aria-valuemin="0" aria-valuemax="100"><i style="width:' + (m.p * 100).toFixed(1) + '%' + (paused ? ';background:var(--amber);box-shadow:none' : '') + '"></i></div>' +
+      '<div style="display:flex;justify-content:space-between;gap:8px;margin-top:8px"><span class="mono" style="font-size:12px">' + (m.p * M.size).toFixed(2) + ' / ' + M.size.toFixed(2) + ' GB' + (paused ? '' : ' · <span class="lime">14 MB/s</span>') + '</span><span class="mono dim" style="font-size:12px">' + (!S.online ? 'paused · no wi-fi' : (m.userPaused ? 'paused' : '~' + left + ' min left')) + '</span></div>' +
+      '<div style="display:flex;align-items:center;gap:8px;margin-top:10px;color:var(--ink2)">' + I('wifi', 16) + '<span style="font-size:12.5px" class="mn">Wi-Fi only · pauses on mobile data</span><span class="tag w">demo · sped up</span></div>' +
+      '<div class="btnrow"><button class="btn g sm grow" data-a="dlPause" data-v="' + id + '">' + (m.userPaused ? 'Resume' : 'Pause') + '</button><button class="btn sm grow" data-a="dlCancel" data-v="' + id + '" style="background:transparent;color:var(--ink2)">Cancel</button></div>';
+  }
+  function vOnDevice() {
+    var L = S.local, g = L.gemma, lm = localModel(), b = S.brain;
+    var role = b.primary === 'local' ? 'always' : (b.backup ? 'offline' : 'never');
+    var h = '<div class="card pan" style="border-color:rgba(200,255,46,.45);background:rgba(200,255,46,.04)"><div style="display:flex;align-items:center;gap:10px">' + (g.st === 'installed' ? OK(22) : '<span class="tile" style="width:22px;height:22px;border-radius:50%">' + I('down', 12) + '</span>') +
+      '<span class="mn" style="font-size:21px;font-weight:700;letter-spacing:-.02em">Gemma 4 E2B</span>' + (g.st === 'installed' ? '<span class="tag l">installed</span>' : '<span class="mono dim" style="font-size:12px">2.6 GB</span>') + '</div>' +
+      '<p class="mono dim" style="font-size:11.5px;margin-top:6px;line-height:1.5">' + esc(LOCAL.gemma.desc) + '</p><div class="hr" style="margin:12px 0"></div>';
+    if (g.st === 'none') h += '<button class="btn l sm" data-a="download" data-v="gemma" style="width:100%">' + I('down', 16) + 'Download · 2.6 GB</button><p class="mono dim" style="font-size:11px;margin-top:8px;text-align:center">wi-fi only · about 3 min on fast wi-fi</p>';
+    else if (g.st !== 'installed') h += vDlBar('gemma');
+    else h += vTest();
+    h += '</div>';
+    h += '<div class="card" style="padding:12px 14px 4px' + (lm ? '' : ';opacity:.45') + '"><span class="lbl" style="font-size:10px">use the on-device brain for calls</span>' +
+      [['offline', 'When offline', 'Cloud first · on-device if there’s no internet'], ['always', 'Always', 'Every call stays on this phone'], ['never', 'Never', 'Keep it installed, but don’t use it']].map(function (r) {
+        return '<button class="mrow" data-a="setRole" data-v="' + r[0] + '" style="padding:8px 0"' + (lm ? '' : ' disabled') + '><span class="radio' + (role === r[0] ? ' on' : '') + '"></span><span class="mn"><span style="display:block;font-size:14.5px;font-weight:600">' + r[1] + '</span><span class="t2" style="margin-top:2px">' + r[2] + '</span></span></button>';
+      }).join('') + '</div>';
+    h += '<div class="card" style="display:flex;align-items:center;gap:12px;padding:10px 10px 10px 14px"><span class="mn"><span style="display:block;font-size:14.5px;font-weight:600">Runs on</span><span class="mono dim" style="display:block;font-size:11px;margin-top:3px">' + (L.unit === 'gpu' ? 'gpu found · picked automatically' : 'slower replies · phone stays cooler') + '</span></span>' +
+      '<div class="segbox">' + [['gpu', 'GPU'], ['cpu', 'CPU']].map(function (u) { return '<button class="seg' + (L.unit === u[0] ? ' on' : '') + '" data-a="setUnit" data-v="' + u[0] + '" style="width:56px;padding:0">' + u[1] + '</button>'; }).join('') + '</div></div>';
+    var q = L.qwen;
+    h += '<div class="card list"><div class="row" style="cursor:default"><span class="tile' + (q.st === 'installed' ? ' on' : '') + '">' + I('cpu', 18) + '</span><span class="mn"><span class="t1" style="font-size:14.5px">Qwen 3.5 0.8B ' + (q.st === 'installed' ? '<span class="tag l">installed</span>' : '') + '</span><span class="t2">0.96 GB · lightest &amp; fastest · basic Hindi</span></span>' +
+      (q.st === 'none' ? '<button class="btn g sm" data-a="download" data-v="qwen" aria-label="Download Qwen 3.5 0.8B" style="width:44px;padding:0">' + I('down', 16) + '</button>' : (q.st === 'installed' ? '<button class="btn g sm" data-a="delModel" data-v="qwen" aria-label="Delete Qwen 3.5 0.8B" style="width:44px;padding:0;color:var(--red);border-color:rgba(255,77,94,.4)">' + I('trash', 16) + '</button>' : '<span class="mono lime" style="font-size:12px">' + Math.round(q.p * 100) + '%</span>')) + '</div>' +
+      (q.st !== 'none' && q.st !== 'installed' ? '<div style="padding:0 14px 12px">' + vDlBar('qwen') + '</div>' : '') +
+      '<div class="hr"></div><button class="row" data-a="e4b" style="opacity:.5"><span class="tile">' + I('lock', 18) + '</span><span class="mn"><span class="t1" style="font-size:14.5px">Gemma 4 E4B</span><span class="t2">3.7 GB · smarter, ~2× slower · needs 12 GB+ RAM</span></span></button></div>';
+    if (g.st === 'installed') h += '<button class="card" data-a="delModel" data-v="gemma" style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-color:rgba(255,77,94,.3);color:var(--red);cursor:pointer;text-align:left">' + I('trash', 18) + '<span class="mn" style="font-size:14.5px;font-weight:600">Delete Gemma 4 E2B</span><span class="mono" style="font-size:11px;color:var(--red2)">frees 2.6 GB</span></button>';
+    return h;
+  }
+  function vTest() {
+    var t = S.local.test;
+    if (t.st === 'idle') return '<button class="btn l sm" data-a="runTest" style="width:100%">' + I('bolt', 16) + 'Run offline test</button><p class="mono dim" style="font-size:11px;margin-top:8px;text-align:center">replies in हिंदी, english &amp; मराठी · times each one</p>';
+    var h = '<div class="tx" style="gap:8px">';
+    t.lines.forEach(function (x) {
+      h += '<div style="display:flex;gap:10px;align-items:flex-start">' + OK(18) + '<span class="mn"><span class="mono" style="font-size:12px">' + esc(x.label) + ' · <span class="lime">' + x.t.toFixed(1) + ' s</span></span>' + (x.text ? '<span class="t2" style="font-size:13px">“' + esc(x.text) + '”</span>' : '') + '</span></div>';
+    });
+    if (t.st === 'running' && t.cur) h += '<div style="display:flex;gap:10px;align-items:center">' + SP(18, 'lime') + '<span class="mono dim" style="font-size:12px">' + esc(t.cur.kind === 'load' ? 'loading the model onto the ' + S.local.unit.toUpperCase() + '… first run is slower' : t.cur.label + ' · thinking…') + '</span></div>';
+    h += '</div>';
+    h += t.st === 'running' ? '<div class="btnrow"><button class="btn g sm" data-a="stopTest">Stop</button></div>' : '<div class="btnrow"><button class="btn g sm" data-a="runTest">' + I('bolt', 16) + 'Run again</button><span class="mono lime" style="font-size:11px">ready for calls</span></div>';
+    return h;
+  }
+
+  /* ---------- dialog + snackbar ---------- */
+  function vDialog() {
+    var d = S.dialog;
+    if (!d) return '';
+    return '<div class="dlg-scrim' + (d.entered ? '' : ' enter') + '" data-a="dlgCancel"></div><div class="dlg' + (d.entered ? '' : ' enter') + '" role="alertdialog" aria-modal="true" aria-labelledby="dlg-t" aria-describedby="dlg-d">' +
+      '<span class="grab" aria-hidden="true"></span><span class="dico">' + I(d.icon || 'trash', 24) + '</span><h2 id="dlg-t">' + esc(d.title) + '</h2><p id="dlg-d">' + d.body + '</p>' +
+      (d.note ? '<div class="note">' + I('down', 18, 'amb') + '<span>' + esc(d.note) + '</span></div>' : '') +
+      '<button class="btn r" data-a="dlgOk" style="margin-top:20px">' + esc(d.ok) + '</button><button class="btn g" data-a="dlgCancel" style="margin-top:10px">' + esc(d.cancel || 'Cancel') + '</button></div>';
+  }
+  function vSnack() {
+    var s = S.snack;
+    if (!s) return '';
+    var icon = s.kind === 'err' ? '<span class="erc">' + I('x', 13, '', 3) + '</span>' : (s.kind === 'plain' ? '' : OK(26));
+    return '<div class="snack ' + (s.kind || 'ok') + (s.entered ? '' : ' enter') + '" role="status">' + icon +
+      '<span class="mn" style="font-size:14px;line-height:1.3' + (icon ? '' : ';padding-left:4px') + '"><b>' + esc(s.title) + '</b>' + (s.sub ? '<span class="mono dim" style="display:block;font-size:11px;margin-top:1px">' + esc(s.sub) + '</span>' : '') + '</span>' +
+      (s.action ? '<button class="sb" data-a="snackAct">' + (s.action === 'Undo' ? I('undo', 16) : '') + esc(s.action) + '</button>' : '<button class="sb" data-a="snackClose" aria-label="Dismiss" style="color:var(--ink2);padding:0 12px">' + I('x', 16) + '</button>') + '</div>';
+  }
+  function snack(title, sub, o) {
+    o = o || {};
+    clearTimeout(T.snack);
+    S.snack = { title: title, sub: sub, kind: o.kind || 'ok', action: o.action, fn: o.fn };
+    T.snack = setTimeout(function () { S.snack = null; render(); }, o.ms || 4500);
+  }
+  function confirmDlg(d) { S.dialog = d; render(); }
+
+  /* ---------- demo panel ---------- */
+  function renderPanel() {
+    var b = brainNow(), modeTxt = { off: 'Off', ask: 'Ask me', auto: 'Auto (' + S.delay + ' s)' }[S.mode];
+    var busy = !!(S.incoming || S.live);
+    panel.innerHTML = '<div class="pc" style="display:flex;flex-direction:column;gap:14px">' +
+      '<div class="pc-head"><span class="pc-mark">saathi<span>.</span></span><span class="pc-tag">prototype v3</span><button class="pc-x" data-a="panelClose" aria-label="Close demo controls">' + I('x', 16) + '</button></div>' +
+      '<p class="pc-note">Click around like it’s the phone. Calls, keys, models and timings are simulated; nothing leaves this page.</p>' +
+      '<h3>Simulate a call</h3><div class="pc-row">' +
+      [['mom', 'Mom'], ['courier', 'Unknown courier'], ['spam', 'Loan spam']].map(function (c) { return '<button data-a="sim" data-v="' + c[0] + '"' + (busy ? ' disabled style="opacity:.4"' : '') + '>' + c[1] + '</button>'; }).join('') + '</div>' +
+      '<p class="pc-hint">Mode is <b>' + modeTxt + '</b>' + (b ? ', answering with <b>' + esc(brainName(b)) + '</b>.' : '. No brain can answer right now.') + '</p>' +
+      '<h3>Network</h3><button class="pc-net" data-a="net" role="switch" aria-checked="' + S.online + '"><span>' + (S.online ? 'Online' : 'Offline (Wi-Fi and data off)') + '</span><span class="tgl' + (S.online ? ' on' : '') + '" aria-hidden="true"></span></button>' +
+      '<h3>Demo API keys</h3><p class="pc-hint" style="margin:-8px 0 0">Fills the matching key field and opens it if needed.</p><div class="pc-row">' +
+      '<button data-a="fill" data-v="gemOk">Gemini · valid</button><button data-a="fill" data-v="gemBad">Gemini · rejected</button><button data-a="fill" data-v="gptOk">ChatGPT · valid</button><button data-a="fill" data-v="gptBad">ChatGPT · rejected</button></div>' +
+      '<h3>Jump to</h3><div class="pc-row">' +
+      [['setup', 'Setup'], ['today', 'Today'], ['you', 'You'], ['persona', 'Persona'], ['brain', 'Brain'], ['ondevice', 'On-device'], ['calls', 'All calls']].map(function (j) { return '<button data-a="jump" data-v="' + j[0] + '">' + j[1] + '</button>'; }).join('') + '</div>' +
+      '<h3>Start over</h3><div class="pc-row"><button data-a="reset" data-v="fresh">First run</button><button data-a="reset" data-v="configured">Already set up</button></div>' +
+      '<h3>Try this</h3><ol class="pc-tips"><li>Finish <b>Seven taps</b>, or press Later.</li><li>Tap <b>' + esc(initial()) + '</b> (top right) for your profile.</li><li>Brain → fill a demo key → <b>Save &amp; verify</b>.</li><li>Go <b>Offline</b>, then simulate a call: Gemma answers.</li><li>On-device → delete Gemma, then download it again.</li><li>During a call, press <b>Stop AI</b> and type a reply.</li></ol></div>';
+  }
+
+  /* ---------------- actions ---------------- */
+  function openSheet(name) {
+    var idx = -1;
+    S.sheets.forEach(function (s, i) { if (s.name === name) idx = i; });
+    if (idx >= 0) S.sheets = S.sheets.slice(0, idx + 1);
+    else S.sheets.push({ name: name });
+  }
+  function closeTopSheet() {
+    var top = S.sheets[S.sheets.length - 1];
+    if (!top || top.leave) return;
+    top.leave = true;
+    render();
+    setTimeout(function () { S.sheets = S.sheets.filter(function (s) { return s !== top; }); render(); }, 190);
+  }
+  function go(route) {
+    if (route !== 'call') S.prev = S.route === 'calls' ? 'calls' : 'today';
+    S.route = route;
+    S.sheets = [];
+    if (route !== 'setup') S.review = false;
+  }
+  function openCall(id) {
+    S.prev = S.route === 'calls' ? 'calls' : 'today';
+    S.callId = id;
+    S.route = 'call';
+    S.sheets = [];
+    render();
+  }
+  function markSaving(sec) {
+    var m = S.persona.mark;
+    m[sec] = 'saving';
+    clearTimeout(T['m' + sec]);
+    T['m' + sec] = setTimeout(function () {
+      m[sec] = 'saved'; render();
+      T['m' + sec] = setTimeout(function () { delete m[sec]; render(); }, 2200);
+    }, 450);
+  }
+  function personaChange(field, val, sec, label) {
+    var p = S.persona, before = p[field];
+    if (before === val) return;
+    p[field] = val;
+    markSaving(sec);
+    snack(label, null, { kind: 'plain', action: 'Undo', fn: function () { p[field] = before; markSaving(sec); render(); } });
+    render();
+  }
+  function cloudWithKey() { return S.brain.gemini.key ? 'gemini' : (S.brain.openai.key ? 'openai' : null); }
+  function verify(p, draft, cb) {
+    var secs = p === 'gemini' ? 1.2 : 1.4;
+    setTimeout(function () {
+      if (!S.online) return cb(false, 'No internet, so ' + (p === 'gemini' ? 'Google' : 'OpenAI') + ' couldn’t check this key. Try again when you’re online.');
+      if (/revoked/i.test(draft)) return cb(false, p === 'gemini' ? 'Google says this key isn’t valid (400). Copy it again from AI Studio.' : 'OpenAI rejected this key (401). Copy the whole key again.');
+      cb(true, '', secs);
+    }, secs * 1000);
+  }
+  function download(id) {
+    var m = S.local[id];
+    if (m.st !== 'none') return;
+    m.st = 'checking'; m.p = 0; m.userPaused = false;
+    render();
+    T['dl' + id] = setTimeout(function () {
+      if (m.st !== 'checking') return;
+      m.st = 'downloading'; render();
+      T['dlt' + id] = setInterval(function () {
+        if (m.st !== 'downloading') { clearInterval(T['dlt' + id]); return; }
+        if (!S.online || m.userPaused) return;
+        m.p = Math.min(1, m.p + LOCAL[id].rate);
+        if (m.p >= 1) {
+          clearInterval(T['dlt' + id]);
+          m.st = 'verifying'; render();
+          T['dl' + id] = setTimeout(function () {
+            m.st = 'installed'; m.p = 1;
+            if (!S.steps.brain && id === 'gemma' && S.route === 'setup') { /* user still decides in setup */ }
+            snack(LOCAL[id].name + ' installed', 'Saathi can now answer calls offline');
+            render();
+          }, 1200);
+          return;
+        }
+        render();
+      }, 250);
+    }, 800);
+  }
+  function stopTimer(k) { clearTimeout(T[k]); clearInterval(T[k]); delete T[k]; }
+  function runTest() {
+    var L = S.local, id = localModel();
+    if (!id) return;
+    stopTimer('test');
+    var t = L.test = { st: 'running', lines: [], cur: null };
+    var o = S.owner || 'Rahul', oh = ownerHi();
+    var seq = [{ kind: 'load', label: L.unit.toUpperCase() + ' · model loaded', t: L.unit === 'gpu' ? 3.4 : 5.1 }].concat([
+      ['हिंदी', 'जी, ' + oh + ' अभी व्यस्त हैं। कोई संदेश है?'],
+      ['English', o + ' is busy right now. Can I take a message?'],
+      ['मराठी', oh + ' आत्ता व्यस्त आहेत. काही निरोप आहे का?']
+    ].map(function (x) { return { kind: 'lang', label: x[0], text: x[1], t: replyTime({ kind: 'local', model: id }) }; }));
+    var i = 0;
+    function next() {
+      if (L.test !== t) return;
+      if (i >= seq.length) {
+        t.st = 'done'; t.cur = null;
+        snack('Offline test passed', LOCAL[id].name + ' · ' + L.unit.toUpperCase() + ' · ready for calls');
+        render(); return;
+      }
+      t.cur = seq[i]; render();
+      T.test = setTimeout(function () { if (L.test !== t) return; t.lines.push(seq[i]); i++; next(); }, seq[i].t * 1000);
+    }
+    next();
+  }
+
+  /* calls */
+  function simulate(id) {
+    if (S.incoming || S.live) return;
+    clearTimeout(T.snack); S.snack = null; S.dialog = null; S.sheets = [];
+    S.incoming = { caller: CALLERS[id], t: S.delay, back: false };
+    S.route = 'incoming';
+    if (S.mode === 'auto' && brainNow()) {
+      T.inc = setInterval(function () {
+        var inc = S.incoming;
+        if (!inc || inc.back) { stopTimer('inc'); return; }
+        inc.t -= 1;
+        if (inc.t <= 0) { stopTimer('inc'); startLive(); return; }
+        render();
+      }, 1000);
+    }
+    closePanelMobile();
+    render();
+  }
+  function startLive() {
+    stopTimer('inc');
+    var inc = S.incoming, b = brainNow();
+    if (!inc || !b) return;
+    var c = inc.caller;
+    S.live = { caller: c, brain: b, lines: [], typing: false, listening: false, sec: 0, step: 0, mode: 'ai' };
+    S.incoming = null; S.route = 'live';
+    T.clock = setInterval(function () { if (S.live) { S.live.sec++; render(); } }, 1000);
+    render();
+    runScript();
+  }
+  function runScript() {
+    var L = S.live;
+    if (!L || L.mode !== 'ai') return;
+    var sc = L.caller.script(S.owner || 'Rahul', ownerHi(), fem());
+    if (L.step >= sc.length) { L.hungUp = true; render(); T.live = setTimeout(function () { endCall(); }, 1200); return; }
+    var line = sc[L.step];
+    L.listening = true; render();
+    T.live = setTimeout(function () {
+      if (S.live !== L || L.mode !== 'ai') return;
+      L.listening = false;
+      L.lines.push({ who: 'in', text: line[0] });
+      if (!line[1]) { L.step = sc.length; L.hungUp = true; render(); T.live = setTimeout(function () { endCall(); }, 1400); return; }
+      L.typing = true; render();
+      var rt = replyTime(L.brain);
+      T.live = setTimeout(function () {
+        if (S.live !== L || L.mode !== 'ai') return;
+        L.typing = false;
+        L.lines.push({ who: 'out', text: S.persona.lang === 'en' ? line[2] : line[1], rt: rt });
+        L.step++; render(); runScript();
+      }, rt * 1000);
+    }, 1700);
+  }
+  function endCall() {
+    var L = S.live;
+    if (!L || L.mode === 'ended') return;
+    stopTimer('live'); stopTimer('clock');
+    var took = L.mode === 'you';
+    L.mode = 'ended'; L.typing = false; L.listening = false;
+    render();
+    T.sum = setTimeout(function () {
+      var c = L.caller;
+      var rec = {
+        id: 'c' + Date.now(), name: c.saveAs || c.name, av: c.av, unknown: !c.known && !c.saveAs, number: c.number, when: 'now', time: nowTime(),
+        dur: Math.max(L.sec, 5), tag: c.tag, open: false, brain: brainShort(L.brain), lang: S.persona.lang === 'en' ? 'English' : 'हिंदी',
+        line: took ? 'You took over from ' + S.persona.name + '.' : c.line,
+        summary: took ? S.persona.name + ' answered, then you took over the call.' + (L.lines.some(function (x) { return x.who === 'you'; }) ? ' Your typed replies are in the transcript.' : '') : c.summary,
+        tx: L.lines.map(function (x) { return [x.who, x.text]; })
+      };
+      S.calls.unshift(rec);
+      S.live = null; S.route = 'today'; S.prev = 'today';
+      snack('Call saved', 'summary ready · ' + fmtDur(rec.dur), { action: 'View', fn: function () { openCall(rec.id); } });
+      render();
+    }, 1500);
+  }
+
+  var A = {
+    go: function (v) { go(v); render(); },
+    sheet: function (v) { if (S.route !== 'today' && S.route !== 'calls' && S.route !== 'call') S.route = 'today'; openSheet(v); render(); },
+    sheetClose: function () { closeTopSheet(); },
+    openCall: function (v) { openCall(v); },
+    filter: function (v) { S.filter = v; render(); },
+    mode: function (v) {
+      S.mode = v;
+      snack(v === 'off' ? 'Saathi is off' : (v === 'ask' ? 'Saathi will ask first' : 'Auto-answer is on'), v === 'auto' ? 'picks up after ' + S.delay + ' s' : (v === 'ask' ? 'a button appears on the call screen' : 'calls ring as usual'), { kind: 'plain', ms: 2600 });
+      render();
+    },
+    delay: function (v) { S.delay = Math.min(20, Math.max(3, S.delay + Number(v))); render(); },
+    callBack: function (v) {
+      var c = S.calls.filter(function (x) { return x.id === v; })[0];
+      if (!c) return;
+      var was = c.open;
+      c.open = false;
+      snack('Calling ' + c.name + '…', c.number + (was ? ' · moved out of “needs you”' : ''), { kind: 'plain', action: was ? 'Undo' : null, fn: function () { c.open = true; render(); } });
+      render();
+    },
+    delCall: function (v) {
+      var c = S.calls.filter(function (x) { return x.id === v; })[0];
+      confirmDlg({ title: 'Delete this call?', body: esc(c.name) + '’s transcript and AI summary (' + fmtDur(c.dur) + ') will be removed from this phone.', ok: 'Delete call', fn: function () {
+        var i = S.calls.indexOf(c);
+        S.calls.splice(i, 1);
+        go(S.prev === 'calls' ? 'calls' : 'today');
+        snack('Call deleted', esc(c.name), { kind: 'plain', action: 'Undo', fn: function () { S.calls.splice(i, 0, c); render(); } });
+      } });
+    },
+
+    /* setup */
+    focusStep: function (v) { S.focus = v; render(); },
+    grant: function (v) {
+      S.busy[v] = true; render();
+      T['g' + v] = setTimeout(function () {
+        S.busy[v] = false; S.steps[v] = true; S.focus = null;
+        if (v === 'samsung') snack('Samsung call settings look right', 'Text call on · Call display: Full screen');
+        render();
+      }, v === 'samsung' ? 1600 : 800);
+    },
+    skVerify: function () {
+      var k = S.sk, draft = k.draft.trim();
+      k.state = 'checking'; render();
+      verify('gemini', draft, function (ok, err, secs) {
+        if (!ok) { k.state = 'bad'; k.err = err; render(); return; }
+        k.state = 'ok'; S.brain.gemini.key = draft; S.brain.primary = 'gemini'; S.brain.backup = true; S.steps.brain = true; S.focus = null;
+        snack('Gemini key saved', 'verified in ' + secs.toFixed(1) + ' s' + (localModel() ? ' · gemma covers offline' : ''));
+        render();
+      });
+    },
+    skGemma: function () { S.brain.primary = 'local'; S.steps.brain = true; S.focus = null; snack('Gemma will answer your calls', 'on this phone · add a Gemini key any time'); render(); },
+    setupLater: function () {
+      var left = setupLeft();
+      go('today');
+      snack('Setup saved', left + ' step' + (left === 1 ? '' : 's') + ' left · finish from your profile', { kind: 'plain' });
+      render();
+    },
+    setupFinish: function () {
+      var rev = S.review;
+      go('today');
+      if (!rev) snack('Saathi is ready', S.mode === 'auto' ? 'auto-answers after ' + S.delay + ' s' : 'mode: ' + S.mode);
+      render();
+    },
+    review: function (v) { S.sheets = []; S.route = 'setup'; S.review = true; S.focus = S.steps[v] ? null : v; render(); },
+
+    /* you + persona */
+    copyGreeting: function () {
+      var txt = greeting();
+      try { if (navigator.clipboard) navigator.clipboard.writeText(txt).catch(function () {}); } catch (e) { /* clipboard blocked */ }
+      snack('Greeting copied', 'paste it into Samsung’s Text call greeting');
+      render();
+    },
+    pVoice: function (v) { personaChange('voice', v, 'voice', 'Voice → ' + (v === 'f' ? 'Female' : 'Male')); },
+    pLang: function (v) { personaChange('lang', v, 'lang', 'Reply language → ' + LANGS.filter(function (l) { return l[0] === v; })[0][1]); },
+    pStyle: function (v) { personaChange('style', v, 'style', 'Style → ' + STYLES.filter(function (l) { return l[0] === v; })[0][1]); },
+    pRule: function (v) {
+      var p = S.persona, r = RULES[Number(v)], before = p.ins;
+      if (p.ins.indexOf(r) >= 0) { snack('That rule is already there', null, { kind: 'plain', ms: 2200 }); render(); return; }
+      p.ins = (p.ins.trim() ? p.ins.replace(/\s+$/, '') + '\n' : '') + r;
+      markSaving('ins');
+      snack('Rule added', r, { kind: 'plain', action: 'Undo', fn: function () { p.ins = before; markSaving('ins'); render(); } });
+      render();
+    },
+
+    /* brain */
+    setPrimary: function (v) {
+      var b = S.brain;
+      if (v === 'local') {
+        if (!localModel()) { snack('Download Gemma first', 'it takes about 3 minutes on fast Wi-Fi', { kind: 'err' }); render(); return; }
+      } else if (!b[v].key) {
+        b.open = v === 'openai' ? 'openai' : b.open;
+        snack('Add a ' + (v === 'gemini' ? 'Gemini' : 'ChatGPT') + ' key first', 'then it can answer your calls', { kind: 'err' });
+        render(); return;
+      }
+      if (b.primary === v) return;
+      var before = b.primary;
+      b.primary = v;
+      snack(v === 'local' ? 'Gemma answers every call' : (v === 'gemini' ? 'Gemini' : 'ChatGPT') + ' answers first', v === 'local' ? 'on this phone · no internet needed' : (localModel() && b.backup ? 'gemma covers offline' : null), { action: 'Undo', fn: function () { b.primary = before; render(); } });
+      render();
+    },
+    openOpenAI: function () { S.brain.open = S.brain.open === 'openai' ? 'gemini' : 'openai'; render(); },
+    keyShow: function (v) { S.brain[v].show = !S.brain[v].show; render(); },
+    keyEdit: function (v) { var k = S.brain[v]; k.edit = true; k.draft = ''; k.state = 'idle'; k.err = ''; render(); var el = document.getElementById('key-' + v); if (el) el.focus(); },
+    keyCancel: function (v) { var k = S.brain[v]; k.edit = false; k.draft = ''; k.state = 'idle'; render(); },
+    keySave: function (v) {
+      var k = S.brain[v], b = S.brain, draft = k.draft.trim();
+      k.state = 'checking'; render();
+      verify(v, draft, function (ok, err, secs) {
+        if (!ok) { k.state = 'bad'; k.err = err; render(); return; }
+        k.key = draft; k.draft = ''; k.edit = false; k.state = 'idle'; k.err = '';
+        var switched = b.primary === 'local' || !b[b.primary] || !b[b.primary].key;
+        if (switched) { b.primary = v; b.backup = true; }
+        S.steps.brain = true;
+        snack((v === 'gemini' ? 'Gemini' : 'ChatGPT') + ' key saved', 'verified in ' + secs.toFixed(1) + ' s' + (switched ? ' · now answering first' : ''), { action: 'Test call', fn: function () { simulate('courier'); } });
+        render();
+      });
+    },
+    keyRemove: function (v) {
+      var b = S.brain, other = v === 'gemini' ? 'openai' : 'gemini', lm = localModel();
+      var fallback = b.primary !== v ? null : (b[other].key ? other : (lm ? 'local' : 'none'));
+      var name = v === 'gemini' ? 'Gemini' : 'ChatGPT';
+      var body = fallback === 'local' ? '<b>' + LOCAL[lm].name + '</b> will answer every call on this phone until you add a key again.'
+        : fallback === 'none' ? 'Saathi has no other brain, so it stops answering calls until you add a key.'
+        : fallback ? '<b>' + (other === 'gemini' ? 'Gemini' : 'ChatGPT') + '</b> becomes the brain that answers first.' : 'Your other brain keeps answering calls.';
+      confirmDlg({ icon: 'key', title: 'Remove ' + name + ' key?', body: body, ok: 'Remove key', cancel: 'Keep key', fn: function () {
+        var saved = { key: b[v].key, primary: b.primary };
+        b[v].key = ''; b[v].edit = false; b[v].draft = '';
+        if (fallback && fallback !== 'none') b.primary = fallback;
+        snack(name + ' key removed', fallback === 'local' ? 'gemma answers now' : (fallback === 'none' ? 'saathi can’t answer calls' : null), { kind: fallback === 'none' ? 'err' : 'plain', action: 'Undo', fn: function () { b[v].key = saved.key; b.primary = saved.primary; render(); } });
+      } });
+    },
+    model: function (v) {
+      var parts = v.split(':'), p = parts[0], k = S.brain[p];
+      if (k.model === parts[1]) return;
+      var before = k.model;
+      k.model = parts[1];
+      var m = (p === 'gemini' ? GEM : GPT).filter(function (x) { return x.id === parts[1]; })[0];
+      snack('Model → ' + m.name, 'measured ' + m.s.toFixed(1) + ' s on this phone', { action: 'Undo', fn: function () { k.model = before; render(); } });
+      render();
+    },
+    toggleBackup: function () {
+      var b = S.brain;
+      b.backup = !b.backup;
+      snack(b.backup ? 'Offline backup on' : 'Offline backup off', b.backup ? 'gemma answers when there’s no internet' : 'calls need internet now', { kind: b.backup ? 'ok' : 'plain' });
+      render();
+    },
+    setRole: function (v) {
+      var b = S.brain, cloud = cloudWithKey();
+      if (v === 'always') b.primary = 'local';
+      else {
+        if (b.primary === 'local') {
+          if (!cloud) { snack('Add a cloud key first', 'Gemma keeps answering every call until Gemini or ChatGPT is set up', { kind: 'err' }); render(); return; }
+          b.primary = cloud;
+        }
+        b.backup = v === 'offline';
+      }
+      snack({ always: 'Gemma answers every call', offline: 'Gemma answers when offline', never: 'Gemma won’t answer calls' }[v], { always: 'on this phone · no internet needed', offline: 'cloud first, on-device as backup', never: 'it stays installed' }[v], { kind: v === 'never' ? 'plain' : 'ok' });
+      render();
+    },
+    setUnit: function (v) {
+      if (S.local.unit === v) return;
+      S.local.unit = v; stopTimer('test'); S.local.test = { st: 'idle', lines: [] };
+      snack('On-device brain runs on ' + v.toUpperCase(), v === 'gpu' ? 'faster replies' : 'slower replies, phone stays cooler', { kind: 'plain' });
+      render();
+    },
+    runTest: function () { runTest(); },
+    stopTest: function () { stopTimer('test'); S.local.test = { st: 'idle', lines: [] }; render(); },
+    download: function (v) { download(v); },
+    dlPause: function (v) { var m = S.local[v]; m.userPaused = !m.userPaused; render(); },
+    dlCancel: function (v) { var m = S.local[v]; stopTimer('dl' + v); stopTimer('dlt' + v); m.st = 'none'; m.p = 0; snack('Download cancelled', LOCAL[v].name, { kind: 'plain' }); render(); },
+    e4b: function () { snack('Gemma 4 E4B needs 12 GB+ RAM', 'this phone has less, so Gemma 4 E2B is the best fit', { kind: 'err' }); render(); },
+    delModel: function (v) {
+      var b = S.brain, M = LOCAL[v], cloud = cloudWithKey();
+      var otherLocal = v === 'gemma' ? (S.local.qwen.st === 'installed' ? 'qwen' : null) : (S.local.gemma.st === 'installed' ? 'gemma' : null);
+      var body = 'Frees ' + M.gb + '. ';
+      if (otherLocal) body += '<b>' + LOCAL[otherLocal].name + '</b> takes over on-device replies.';
+      else if (b.primary === 'local') body += cloud ? 'Calls go to <b>' + (cloud === 'gemini' ? 'Gemini' : 'ChatGPT') + '</b> instead, so they need internet.' : 'Saathi has no other brain, so it stops answering calls.';
+      else if (b.backup) body += 'Calls still go to <b>' + (cloud === 'openai' ? 'ChatGPT' : 'Gemini') + '</b>, but when you’re offline Saathi won’t answer.';
+      confirmDlg({ title: 'Delete ' + M.name + '?', body: body, note: 'Getting it back means downloading ' + M.gb + ' again on Wi-Fi.', ok: 'Delete model', cancel: 'Keep it', fn: function () {
+        S.local[v].st = 'none'; S.local[v].p = 0;
+        if (!localModel() && b.primary === 'local' && cloud) b.primary = cloud;
+        stopTimer('test'); S.local.test = { st: 'idle', lines: [] };
+        snack(M.name + ' deleted', M.gb + ' freed', { kind: 'plain', action: 'Download again', fn: function () { download(v); } });
+      } });
+    },
+
+    /* dialog + snack */
+    dlgOk: function () { var d = S.dialog; S.dialog = null; if (d && d.fn) d.fn(); render(); },
+    dlgCancel: function () { S.dialog = null; render(); },
+    snackAct: function () { var s = S.snack; clearTimeout(T.snack); S.snack = null; if (s && s.fn) s.fn(); render(); },
+    snackClose: function () { clearTimeout(T.snack); S.snack = null; render(); },
+
+    /* incoming + live */
+    letAnswer: function () { startLive(); },
+    notNow: function () { stopTimer('inc'); if (S.incoming) S.incoming.back = true; render(); },
+    decline: function () {
+      stopTimer('inc');
+      var c = S.incoming && S.incoming.caller;
+      S.incoming = null; go('today');
+      snack('Call declined', c ? c.number : null, { kind: 'plain' });
+      render();
+    },
+    answerSelf: function () {
+      stopTimer('inc');
+      var inc = S.incoming;
+      if (!inc) return;
+      S.live = { caller: inc.caller, brain: brainNow(), lines: [], sec: 0, mode: 'you' };
+      S.incoming = null; S.route = 'live';
+      T.clock = setInterval(function () { if (S.live) { S.live.sec++; render(); } }, 1000);
+      render();
+    },
+    stopAI: function () {
+      var L = S.live;
+      if (!L) return;
+      stopTimer('live');
+      L.mode = 'you'; L.typing = false; L.listening = false;
+      snack(S.persona.name + ' stopped', 'you’re on the call · type and Samsung speaks it', { kind: 'plain' });
+      render();
+      var el = document.getElementById('live-msg'); if (el) el.focus();
+    },
+    endCall: function () { endCall(); },
+
+    /* panel */
+    sim: function (v) { simulate(v); },
+    net: function () {
+      S.online = !S.online;
+      var b = brainNow();
+      snack(S.online ? 'Back online' : 'You’re offline', S.online ? (b ? brainShort(b) + ' answers calls' : null) : (b ? 'gemma answers calls on this phone' : 'no offline brain is ready'), { kind: S.online || b ? 'plain' : 'err' });
+      render();
+    },
+    fill: function (v) {
+      var gem = v.indexOf('gem') === 0;
+      if (gem && S.route === 'setup' && currentStep() === 'brain') { S.sk.draft = KEYS[v]; S.sk.state = 'idle'; render(); closePanelMobile(); return; }
+      var p = gem ? 'gemini' : 'openai', k = S.brain[p];
+      if (S.route === 'setup' || S.route === 'incoming' || S.route === 'live') { if (S.route === 'setup') go('today'); else return; }
+      if (!S.sheets.some(function (s) { return s.name === 'brain'; })) { S.sheets = [{ name: 'you', entered: true }, { name: 'brain' }]; }
+      else S.sheets = S.sheets.slice(0, S.sheets.map(function (s) { return s.name; }).indexOf('brain') + 1);
+      if (!gem) S.brain.open = 'openai';
+      if (k.key) k.edit = true;
+      k.draft = KEYS[v]; k.state = 'idle'; k.err = ''; k.show = true;
+      closePanelMobile();
+      render();
+    },
+    jump: function (v) {
+      if (S.incoming || S.live) { stopTimer('inc'); stopTimer('live'); stopTimer('clock'); stopTimer('sum'); S.incoming = null; S.live = null; }
+      S.dialog = null;
+      if (v === 'setup') { S.sheets = []; S.route = 'setup'; S.review = setupLeft() === 0 || S.steps.brain; }
+      else if (v === 'today' || v === 'calls') go(v);
+      else {
+        S.route = 'today';
+        var chain = { you: ['you'], persona: ['you', 'persona'], brain: ['you', 'brain'], ondevice: ['you', 'brain', 'ondevice'] }[v];
+        S.sheets = chain.map(function (n, i) { return { name: n, entered: i < chain.length - 1 }; });
+      }
+      closePanelMobile();
+      render();
+    },
+    reset: function (v) { clearTimers(); S = v === 'configured' ? configured() : fresh(); closePanelMobile(); render(); },
+    panelClose: function () { closePanelMobile(); }
+  };
+
+  var IN = {
+    skKey: function (v) { S.sk.draft = v; if (S.sk.state === 'bad') S.sk.state = 'idle'; return true; },
+    key: function (v, el) { var k = S.brain[el.getAttribute('data-v')]; k.draft = v; if (k.state === 'bad') k.state = 'idle'; return true; },
+    pName: function (v) { S.persona.name = v; liveGreeting(); debounceSave('id'); return false; },
+    pOwner: function (v) { S.owner = v; liveGreeting(); debounceSave('id'); return false; },
+    pIns: function (v) { S.persona.ins = v; debounceSave('ins'); return false; }
+  };
+  function liveGreeting() { var g = document.getElementById('greet'); if (g) g.textContent = greeting(); }
+  function debounceSave(sec) { clearTimeout(T['d' + sec]); T['d' + sec] = setTimeout(function () { markSaving(sec); render(); }, 650); }
+
+  /* ---------------- events ---------------- */
+  document.addEventListener('click', function (e) {
+    var t = e.target.closest('[data-a]');
+    if (!t || t.disabled) return;
+    if (!app.contains(t) && !panel.contains(t)) return;
+    var fn = A[t.getAttribute('data-a')];
+    if (fn) { e.preventDefault(); fn(t.getAttribute('data-v'), t); }
+  });
+  app.addEventListener('input', function (e) {
+    var t = e.target.closest('[data-in]');
+    if (!t) return;
+    var fn = IN[t.getAttribute('data-in')];
+    if (fn && fn(t.value, t)) render();
+  });
+  app.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var el = document.getElementById('live-msg');
+    if (!el || !S.live || !el.value.trim()) return;
+    S.live.lines.push({ who: 'you', text: el.value.trim() });
+    el.value = '';
+    render();
+  });
+  app.addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter') return;
+    var t = e.target;
+    if (t.id === 'sk-key') { e.preventDefault(); if (!checkKey('gemini', S.sk.draft) && S.sk.draft.trim()) A.skVerify(); }
+    else if (t.id === 'key-gemini' || t.id === 'key-openai') {
+      e.preventDefault();
+      var p = t.id.slice(4);
+      if (!checkKey(p, S.brain[p].draft) && S.brain[p].draft.trim() && S.brain[p].state !== 'checking') A.keySave(p);
+    }
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    if (document.body.classList.contains('panel-open')) { closePanelMobile(); return; }
+    if (S.dialog) { S.dialog = null; render(); return; }
+    if (S.sheets.length) closeTopSheet();
+  });
+
+  /* ---------------- layout ---------------- */
+  var fab = document.getElementById('fab');
+  fab.addEventListener('click', function () { document.body.classList.add('panel-open'); });
+  function closePanelMobile() { document.body.classList.remove('panel-open'); }
+  function fit() {
+    var mobile = window.innerWidth < 760;
+    document.body.classList.toggle('mobile', mobile);
+    if (mobile) { frame.style.width = ''; frame.style.height = ''; device.style.removeProperty('--s'); return; }
+    var s = Math.min(1, (window.innerHeight - 40) / 844);
+    device.style.setProperty('--s', s);
+    frame.style.width = (390 * s) + 'px';
+    frame.style.height = (844 * s) + 'px';
+    panel.style.maxHeight = Math.max(420, 844 * s) + 'px';
+  }
+  window.addEventListener('resize', fit);
+  fit();
+  render();
+})();
+</script>
+</body>
+</html>
