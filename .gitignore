@@ -69,3 +69,7 @@ docs/
 # Git
 # ====================================================================
 .git
+
+# Local API keys — never commit
+*.env
+api.env
