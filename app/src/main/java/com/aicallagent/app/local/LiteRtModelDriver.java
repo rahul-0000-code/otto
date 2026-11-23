@@ -44,6 +44,11 @@ final class LiteRtModelDriver implements LocalModelSession.Driver {
     @Override public String generate(ReplyRequest request, BooleanSupplier cancelled) throws Exception {
         GenerationTrace trace = new GenerationTrace(request, line -> Log.i("LocalGeneration", line));
         trace.start(usingGpu);
+        if (request.assistant) {
+            // Single pass: free-form replies have no rule validator to drive a repair.
+            String text = generateOnce(request, cancelled, false, "", trace);
+            return text.replaceAll("\\[\\[[A-Z_]+]]", " ").replaceAll("[*_`#]", "").replaceAll("\\s+", " ").trim();
+        }
         return WordChainGeneration.generate(request, cancelled,
                 (repair, instruction) -> generateOnce(request, cancelled, repair, instruction, trace), trace);
     }

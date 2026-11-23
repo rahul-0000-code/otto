@@ -4,6 +4,9 @@ import android.content.Context;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.List;
+import android.util.Log;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -88,13 +91,77 @@ public final class LocalModelRuntime implements ReplyEngine {
         loadModel(gpu, null);
     }
     private boolean loadModel(boolean gpu, Callback callback) {
-        return submit("LOAD", 120, () -> {
+        return submit("LOAD", 150, () -> {
             session.cancelAndClose();
             if (!session.canStart()) throw new IOException("RELEASE_FAILED");
-            LocalModelStore.Model model = store.verifyCurrent(this::isCancelled);
-            if (!isCancelled()) session.load(model.file, gpu);
+            loadVerified(gpu);
         }, callback);
     }
+    /** GPU first when chosen; a device without a usable OpenCL driver falls back to CPU once. */
+    private void loadVerified(boolean gpu) throws IOException {
+        LocalModelStore.Model model = store.verifyCurrent(this::isCancelled);
+        if (isCancelled()) return;
+        session.load(model.file, gpu);
+        if (gpu && !isCancelled() && session.snapshot().state != LocalModelSession.State.READY && session.canStart()) {
+            session.load(model.file, false);
+            if (session.snapshot().state == LocalModelSession.State.READY) saveGpuChoice.accept(false);
+        }
+    }
+    public File downloadDirectory() { return store.directory(); }
+    public void preferGpu(boolean gpu) { saveGpuChoice.accept(gpu); }
+    public boolean prefersGpu() { return gpuChoice.getAsBoolean(); }
+    public synchronized boolean isBusy() { return busy; }
+
+    /** Verifies a finished download in place and makes it the active model. Not while a call owns the engine. */
+    public synchronized boolean adoptDownloaded(File file, String sha256, Callback callback) {
+        if (callOwner != null) return false;
+        return submit("IMPORT", 0, () -> {
+            session.cancelAndClose();
+            if (!session.canStart()) throw new IOException("RELEASE_FAILED");
+            store.adopt(file, sha256, this::isCancelled);
+            updateModel();
+        }, callback);
+    }
+
+    /** Result of an on-device benchmark: per-reply answers and timings. */
+    public interface TestCallback { void done(List<String> answers, long loadMs, long[] replyMs, boolean gpu, String error); }
+
+    /**
+     * Runs a few assistant replies back to back for the Brain screen's benchmark. Reuses a model
+     * the service already holds; otherwise loads it once and releases it afterwards.
+     */
+    public synchronized boolean testAssistant(List<ReplyRequest> requests, TestCallback callback) {
+        if (busy || !session.canStart() || modelHash.isEmpty() || requests.isEmpty()) return false;
+        final boolean owned = callOwner != null;
+        final boolean loaded = session.snapshot().state == LocalModelSession.State.READY;
+        if (owned && !loaded) return false;
+        final List<String> answers = new ArrayList<>();
+        final long[] replyMs = new long[requests.size()];
+        final long[] loadMs = {0};
+        return submit("TEST", 60 * requests.size() + (loaded ? 0 : 150), () -> {
+            long start = System.nanoTime();
+            if (!loaded) {
+                session.cancelAndClose();
+                loadVerified(selectedGpu());
+                loadMs[0] = (System.nanoTime() - start) / 1_000_000;
+            }
+            for (int i = 0; i < requests.size() && !isCancelled(); i++) {
+                if (session.snapshot().state != LocalModelSession.State.READY) break;
+                long t = System.nanoTime();
+                session.generate(requests.get(i));
+                replyMs[i] = (System.nanoTime() - t) / 1_000_000;
+                answers.add(session.snapshot().answer);
+                session.clearAnswer();
+                Log.i("SaathiBench", "reply=" + i + " ms=" + replyMs[i] + " chars=" + answers.get(i).length()
+                        + " gpu=" + selectedGpu() + " load_ms=" + loadMs[0]);
+            }
+        }, (unused, error) -> {
+            boolean gpu = selectedGpu();
+            if (!owned) release();
+            callback.done(answers, loadMs[0], replyMs, gpu, error);
+        });
+    }
+
     public synchronized boolean prepareForCalls(Object owner, Callback callback) {
         if (owner == null || busy || callOwner != null || !session.canStart()) return false;
         callOwner = owner;
@@ -150,7 +217,7 @@ public final class LocalModelRuntime implements ReplyEngine {
                 synchronized (this) { error = safeError(failure); }
             } finally {
                 String result = session.snapshot().answer;
-                if (name.equals("CALL")) session.clearAnswer();
+                if (name.equals("CALL") || name.equals("TEST")) session.clearAnswer();
                 String diagnostic;
                 boolean released = false;
                 while (true) {

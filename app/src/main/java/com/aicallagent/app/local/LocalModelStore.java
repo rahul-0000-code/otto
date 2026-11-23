@@ -13,7 +13,8 @@ import java.util.function.BooleanSupplier;
 // Deliberately budget actual free bytes without asking Android to reclaim other apps' caches.
 @SuppressWarnings("UsableSpace")
 public final class LocalModelStore {
-    public static final long MAX_BYTES = 6L * 1024 * 1024 * 1024;
+    // Hard cap: anything bigger is too slow for a live call and too large for phone RAM.
+    public static final long MAX_BYTES = 4L * 1024 * 1024 * 1024;
     private static final long FREE_RESERVE = 64L * 1024 * 1024;
     private static final byte[] MAGIC = "LITERTLM".getBytes(StandardCharsets.US_ASCII);
     private final File directory;
@@ -89,6 +90,35 @@ public final class LocalModelStore {
             if (pointer != null) pointer.delete();
             if (!published && createdTarget) target.delete();
         }
+    }
+
+    /**
+     * Publishes a file already downloaded into this directory, without copying it.
+     * The same magic, size and SHA-256 checks as {@link #importModel} apply.
+     */
+    public Model adopt(File downloaded, String expectedHash, BooleanSupplier cancelled) throws IOException {
+        String expected = expectedHash.trim().toLowerCase(Locale.ROOT);
+        if (!expected.matches("[0-9a-f]{64}")) throw new IllegalArgumentException("SHA256");
+        if (!directory.equals(downloaded.getParentFile()) || !downloaded.isFile()) throw new IOException("MISSING_MODEL");
+        String actual;
+        try (InputStream input = new FileInputStream(downloaded)) { actual = digestCopy(input, null, cancelled); }
+        if (!expected.equals(actual)) throw new IOException("HASH_MISMATCH");
+        checkCancelled(cancelled);
+        Model previous = current();
+        File target = new File(directory, expected + ".litertlm");
+        Files.move(downloaded.toPath(), target.toPath(), StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+        File pointer = File.createTempFile("active-", ".partial", directory);
+        try {
+            try (FileOutputStream output = new FileOutputStream(pointer)) {
+                output.write(expected.getBytes(StandardCharsets.US_ASCII)); output.getFD().sync();
+            }
+            Files.move(pointer.toPath(), new File(directory, "active").toPath(),
+                    StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+        } finally {
+            pointer.delete();
+        }
+        if (previous != null && !previous.sha256.equals(expected)) previous.file.delete();
+        return new Model(target, expected);
     }
 
     private String digestCopy(InputStream input, FileOutputStream output, BooleanSupplier cancelled) throws IOException {
