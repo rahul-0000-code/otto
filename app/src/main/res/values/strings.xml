@@ -37,8 +37,10 @@
     <string name="local_release_failed">Could not confirm model release; execution blocked. Please restart the app.</string>
     <string name="local_failed">Local task failed. Check file permissions and model compatibility.</string>
     <string name="local_call_blocked">Turn off auto-reply and ensure no active calls to test.</string>
-    <string name="app_name">AI Call Agent</string>
-    <string name="accessibility_service_label">AI Call Agent Accessibility Service</string>
+    <string name="app_name">Otto</string>
+    <string name="accessibility_service_label">Otto call assistant</string>
+    <string name="samy_tile_label">Ask Otto</string>
+    <string name="accessibility_service_description">Lets Otto see Samsung\'s call screen so it can show the button that lets your assistant answer, switch the call to Text call and type replies for you. It only watches the Samsung phone app.</string>
     <string name="status_service_connected">Accessibility service connected</string>
     <string name="status_service_disconnected">Accessibility service disconnected: Enable in Settings</string>
     <string name="btn_open_settings">Open Accessibility Settings</string>
