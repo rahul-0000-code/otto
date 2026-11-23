@@ -78,7 +78,7 @@ public class SpeechBusyRetryTest {
     @Test public void staleNoticeOrChangedInputCannotAuthorizeRetry() {
         attempt();
         assertFalse(flow.speechRejected(screen, sentAt - 1, sentAt + 100));
-        assertFalse(flow.speechRejected(screen, sentAt + 1, sentAt + 4000));
+        assertFalse(flow.speechRejected(screen, sentAt + 1, sentAt + 6500));
         screen.inputMatchesReply = false;
         assertFalse(flow.speechRejected(screen, sentAt + 100, sentAt + 100));
         screen.inputMatchesReply = true; screen.replyCount++;
@@ -109,17 +109,18 @@ public class SpeechBusyRetryTest {
         assertEquals("SPEECH_BUSY_TIMEOUT", flow.getFailure().name());
     }
 
-    @Test public void newCallerSpeechDuringWaitIsQueuedWithoutAnotherApiRequest() {
+    @Test public void newCallerSpeechDuringWaitHoldsTheReplyAndAnswersBothTogether() {
         attempt(); flow.speechRejected(screen, sentAt + 100, sentAt + 100);
+        screen.inputMatchesOwnedDraft = true;
         screen.remoteCount = 2; screen.remoteText = "가상 추가 문의";
-        assertEquals(NONE, flow.step(screen, sentAt + 200));
-        assertEquals(SEND_REPLY, flow.step(screen, sentAt + 2100));
-        flow.actionResult(true, sentAt + 2100);
-        screen.inputEmpty = true; screen.inputMatchesReply = false; screen.replyCount++;
-        flow.step(screen, sentAt + 2200);
-        flow.step(screen, sentAt + 2300);
-        assertEquals(REQUEST_REPLY, flow.step(screen, sentAt + 3000));
-        assertEquals("가상 추가 문의", flow.getRequestText());
+        // The caller spoke while the voice was still busy: drop the waiting reply instead of
+        // sending it over them, then ask again with everything they said.
+        assertEquals(CLEAR_DRAFT, flow.step(screen, sentAt + 200));
+        flow.actionResult(true, sentAt + 200);
+        screen.inputEmpty = true; screen.inputMatchesReply = screen.inputMatchesOwnedDraft = false;
+        flow.step(screen, sentAt + 300);
+        assertEquals(REQUEST_REPLY, flow.step(screen, sentAt + 1000));
+        assertEquals("가상 문의\n가상 추가 문의", flow.getRequestText());
     }
 
     @Test public void lostWindowOrButtonWaitsAndDoesNotSpendRetryPermission() {

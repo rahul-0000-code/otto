@@ -36,6 +36,13 @@ public class AiTargetPolicyTest {
                 "Text call"));
     }
 
+    @Test public void galaxyS21FeTextCallLabelWithRecordingNoticeIsRecognized() {
+        assertTrue(AiTargetPolicy.matchesTextCall("com.samsung.android.incallui:id/text_call_button",
+                "Text call, Button, Call recording will stop if you switch to a text call."));
+        assertFalse(AiTargetPolicy.matchesTextCall("com.samsung.android.incallui:id/text_call_button",
+                "Text call settings"));
+    }
+
     @Test public void unknownOrTranslationMenuLabelIsRejected() {
         assertFalse(AiTargetPolicy.matches(AiTargetPolicy.VERIFIED_ID, AiTargetPolicy.VERIFIED_LABEL,
                 AiTargetPolicy.VERIFIED_ID, "Live translate"));

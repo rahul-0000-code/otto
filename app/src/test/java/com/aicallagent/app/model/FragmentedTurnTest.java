@@ -36,6 +36,18 @@ public class FragmentedTurnTest {
         assertEquals("욕실 공사\n서울입니다", flow.getRequestText());
     }
 
+    @Test public void pendingTurnMatchesTheRequestThatFollowsTheSilence() {
+        start(); visible("욕실 공사", "row:1"); flow.step(screen, 1000);
+        visible("서울입니다", "row:2"); flow.step(screen, 1300);
+        assertEquals("욕실 공사\n서울입니다", flow.getPendingTurn());
+        assertEquals(400, flow.getPendingTurnQuietMs(1700));
+        assertEquals(REQUEST_REPLY, flow.step(screen, 2000));
+        assertEquals("", flow.getPendingTurn());
+        java.util.List<CallConversation.Message> history = flow.getConversation();
+        assertEquals("user", history.get(history.size() - 1).role);
+        assertEquals("욕실 공사\n서울입니다", history.get(history.size() - 1).content);
+    }
+
     @Test public void extraFragmentDuringApiInvalidatesOldReplyAndCombinesOneUserTurn() {
         initialRequest(); visible("서울입니다", "row:2");
         assertEquals(NONE, flow.step(screen, 1800));
@@ -63,19 +75,23 @@ public class FragmentedTurnTest {
         assertEquals("욕실 공사\n서울입니다", flow.getRequestText());
     }
 
-    @Test public void fragmentsAfterInputStartRemainNextTurnAndDoNotEraseReply() {
+    @Test public void fragmentsAfterInputStartHoldTheTypedReplyAndJoinTheTurn() {
+        // The caller kept talking after the reply was typed: don't send it over them.
         initialRequest(); flow.replyResult("현재 답변", 1700);
         assertEquals(SET_REPLY, flow.step(screen, 1700)); flow.actionResult(true, 1700);
         screen.inputEmpty = false; screen.inputMatchesReply = screen.submitReady = true;
+        screen.inputMatchesOwnedDraft = true;
         screen.submitBounds = "verified bounds";
-        visible("서울입니다", "row:2"); flow.step(screen, 1950);
+        visible("서울입니다", "row:2");
+        assertEquals(CLEAR_DRAFT, flow.step(screen, 1950)); flow.actionResult(true, 1950);
+        assertEquals("", flow.getReplyText());
+        screen.inputEmpty = true; screen.inputMatchesReply = screen.inputMatchesOwnedDraft = false;
         visible("다음 달", "row:3");
-        assertEquals(SEND_REPLY, flow.step(screen, 2250)); flow.actionResult(true, 2250);
-        assertEquals("현재 답변", flow.getReplyText());
-        screen.inputEmpty = true; screen.inputMatchesReply = false; screen.replyCount++;
-        flow.step(screen, 2251); flow.step(screen, 2300);
-        assertEquals(REQUEST_REPLY, flow.step(screen, 3000));
-        assertEquals("서울입니다\n다음 달", flow.getRequestText());
+        flow.step(screen, 2000);
+        assertEquals(NONE, flow.step(screen, 2699));
+        assertEquals(REQUEST_REPLY, flow.step(screen, 2700));
+        assertEquals("욕실 공사\n서울입니다\n다음 달", flow.getRequestText());
+        assertEquals(1, flow.getConversation().size());
     }
 
     @Test public void missingTranscriptDoesNotDropAccumulatedFragments() {

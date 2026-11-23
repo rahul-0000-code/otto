@@ -16,8 +16,13 @@ public final class AiTargetPolicy {
     }
 
     public static boolean matchesTextCall(String id, String label) {
-        return CallStateModel.ID_TEXT_CALL_BUTTON.equals(id)
-                && localizedLabel(label, "텍스트 통화", "text call");
+        if (!CallStateModel.ID_TEXT_CALL_BUTTON.equals(id)) return false;
+        if (localizedLabel(label, "텍스트 통화", "text call")) return true;
+        // Some One UI builds append a notice, e.g. the Galaxy S21 FE reads
+        // "Text call, Button, Call recording will stop if you switch to a text call."
+        if (label == null) return false;
+        String normalized = label.trim().toLowerCase(Locale.ROOT);
+        return normalized.startsWith("text call, ") || normalized.startsWith("텍스트 통화, ");
     }
 
     private static boolean localizedLabel(String label, String korean, String english) {

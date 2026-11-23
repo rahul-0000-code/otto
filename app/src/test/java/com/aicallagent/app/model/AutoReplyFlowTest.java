@@ -240,12 +240,12 @@ public class AutoReplyFlowTest {
         screen.inputMatchesReply = true;
         screen.submitReady = true;
         screen.submitBounds = "first";
-        now += 250;
+        now += 150;
         step();
-        now += 299;
+        now += 199;
         screen.submitBounds = "second";
         assertEquals(NONE, step());
-        now += 299;
+        now += 199;
         assertEquals(NONE, step());
         now += 1;
         assertEquals(SEND_REPLY, step());

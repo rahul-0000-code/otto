@@ -122,7 +122,9 @@ final class SamsungCallUi {
         screen.textCall = visible(root, CallStateModel.ID_TEXT_MESSAGE_EDIT);
         screen.ended = visible(root, CallStateModel.ID_CALL_ENDED);
         screen.assistReady = buttonTarget(root, AutoReplyFlow.Action.OPEN_ASSIST) != null;
-        screen.textOptionReady = buttonTarget(root, AutoReplyFlow.Action.OPEN_TEXT) != null;
+        AccessibilityNodeInfo textOption = buttonTarget(root, AutoReplyFlow.Action.OPEN_TEXT);
+        screen.textOptionReady = textOption != null;
+        if (textOption != null) screen.textOptionBounds = bounds(textOption).flattenToString();
         AccessibilityNodeInfo input = unique(root, CallStateModel.ID_TEXT_MESSAGE_EDIT);
         screen.inputReady = input != null && input.isEditable()
                 && supports(input, AccessibilityNodeInfo.ACTION_SET_TEXT);

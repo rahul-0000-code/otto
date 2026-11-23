@@ -2,9 +2,9 @@
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
     android:accessibilityEventTypes="typeWindowStateChanged|typeWindowContentChanged|typeViewFocused|typeNotificationStateChanged"
     android:accessibilityFeedbackType="feedbackGeneric"
-    android:accessibilityFlags="flagReportViewIds"
+    android:accessibilityFlags="flagReportViewIds|flagRetrieveInteractiveWindows"
     android:canRetrieveWindowContent="true"
     android:canPerformGestures="true"
-    android:description="@string/accessibility_service_label"
+    android:description="@string/accessibility_service_description"
     android:notificationTimeout="100"
     android:packageNames="com.samsung.android.incallui,com.samsung.android.app.telephonyui" />
